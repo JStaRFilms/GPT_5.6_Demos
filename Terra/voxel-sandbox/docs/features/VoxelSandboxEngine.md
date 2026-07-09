@@ -2,7 +2,7 @@
 
 ## Status
 
-**Implemented — launch flow hardened for local-file Pointer Lock behavior.**
+**Implemented — initialization and local-file Pointer Lock launch behavior hardened.**
 
 ## Goal
 
@@ -11,7 +11,7 @@ Deliver a high-performance, desktop-first voxel sandbox in one portable `voxel-s
 ## Player experience
 
 - Procedural hills, water, beaches, trees, and underground stone generated from deterministic 2D/3D noise.
-- First-person pointer-lock controls: WASD movement, mouse look, Space jump, and Shift slow/crawl mode with optional fly toggle in the pause menu.
+- First-person pointer-lock controls: correctly oriented WASD movement, mouse look, Space jump, and Shift slow/crawl mode with optional fly toggle in the pause menu.
 - Break blocks with left click (pixel-particle burst) and place the selected block with right click.
 - Six-slot hotbar for Grass, Dirt, Stone, Glass, TNT, and Torch; keyboard keys `1`–`6` and mouse selection both work.
 - Physics includes gravity, AABB voxel collision, grounded jumping, and water-aware movement.

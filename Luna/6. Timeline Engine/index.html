@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FRAME/01 — Timeline Engine</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { ink: '#050505', paper: '#f5f5f0', signal: '#ff3030', dim: '#848484', line: '#232323' },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'], mono: ['"IBM Plex Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'] }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root { --ink:#050505; --paper:#f5f5f0; --signal:#ff3030; --muted:#888; --line:#252525; --panel:#0b0b0b; }
+    * { box-sizing: border-box; }
+    html, body, #root { min-height: 100%; margin: 0; background: var(--ink); color: var(--paper); }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, textarea { font: inherit; }
+    button { cursor: pointer; }
+    .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .hairline { border-color: var(--line); }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+    .micro { font-size: 10px; letter-spacing: .15em; text-transform: uppercase; }
+    .signal { color: var(--signal); }
+    .signal-stroke { border-color: var(--signal); }
+    .icon-button { display:flex; align-items:center; justify-content:center; width:32px; height:32px; border:1px solid #303030; color:#a9a9a9; background:#0a0a0a; border-radius:4px; transition:all .18s ease; }
+    .icon-button:hover, .icon-button.active { color:var(--paper); border-color:#777; background:#171717; }
+    .icon-button.primary { color:var(--ink); background:var(--paper); border-color:var(--paper); }
+    .icon-button.primary:hover { background:#fff; box-shadow:0 0 20px rgba(245,245,240,.15); }
+    .grid-bg { background-color:#070707; background-image: linear-gradient(rgba(255,255,255,.032) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.032) 1px, transparent 1px); background-size:32px 32px; }
+    .preview-shell { min-height: 515px; position:relative; overflow:hidden; background:#070707; }
+    .preview-shell:before { content:""; position:absolute; inset:18px; border:1px solid rgba(255,255,255,.08); pointer-events:none; z-index:0; }
+    .preview-content { position:relative; z-index:1; height:100%; min-height:515px; }
+    .red-rule { height:2px; width:42px; background:var(--signal); box-shadow:0 0 13px rgba(255,48,48,.55); }
+    .slide-title { font-size:clamp(38px,5.5vw,78px); line-height:.88; letter-spacing:-.065em; font-weight:700; }
+    .slide-number { font-size:clamp(80px,14vw,190px); line-height:.72; letter-spacing:-.1em; color:#151515; font-weight:800; user-select:none; }
+    .word { display:inline-block; will-change:transform, opacity; }
+    .axis-label { font-size:10px; fill:#707070; font-family:"IBM Plex Mono", monospace; letter-spacing:.08em; }
+    .axis-line { stroke:#313131; stroke-width:1; }
+    .graph-path { fill:none; stroke:var(--signal); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; filter:drop-shadow(0 0 5px rgba(255,48,48,.5)); }
+    .graph-dot { fill:var(--ink); stroke:var(--signal); stroke-width:2; }
+    .schema-textarea { width:100%; min-height:395px; resize:none; background:#080808; color:#c7c7c2; border:0; outline:0; font:11px/1.65 "IBM Plex Mono", ui-monospace, monospace; tab-size:2; }
+    .schema-textarea:focus { box-shadow: inset 0 0 0 1px rgba(255,48,48,.45); }
+    .scroll-thin::-webkit-scrollbar { width:5px; height:5px; }
+    .scroll-thin::-webkit-scrollbar-track { background:#0b0b0b; }
+    .scroll-thin::-webkit-scrollbar-thumb { background:#3b3b3b; border-radius:10px; }
+    .timeline-track { position:relative; height:36px; background:#101010; border:1px solid #272727; overflow:hidden; cursor:pointer; }
+    .timeline-track:before { content:""; position:absolute; inset:0; background-image:linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px); background-size:10% 100%; pointer-events:none; }
+    .track-segment { position:absolute; top:0; bottom:0; border-left:1px solid rgba(255,255,255,.12); border-right:1px solid rgba(255,255,255,.12); display:flex; align-items:center; padding:0 10px; color:#aaa; font-size:10px; letter-spacing:.04em; text-transform:uppercase; transition:background .2s, color .2s; }
+    .track-segment:hover, .track-segment.active { background:rgba(255,48,48,.12); color:var(--paper); }
+    .playhead { position:absolute; top:-9px; bottom:-9px; width:1px; background:var(--signal); z-index:5; box-shadow:0 0 9px rgba(255,48,48,.9); pointer-events:none; }
+    .playhead:before { content:""; position:absolute; top:0; left:-4px; width:9px; height:9px; background:var(--signal); transform:rotate(45deg); }
+    .timeline-ruler { display:flex; justify-content:space-between; color:#616161; font-size:9px; margin-top:7px; }
+    .pulse { animation:pulse 1.8s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:1} }
+    .counter { font-variant-numeric:tabular-nums; letter-spacing:-.07em; }
+    .metric-card { background:#0d0d0d; border:1px solid #282828; border-left:2px solid var(--signal); }
+    .status-dot { width:6px; height:6px; background:var(--signal); display:inline-block; border-radius:50%; box-shadow:0 0 8px var(--signal); }
+    @media (max-width: 980px) { .preview-shell, .preview-content { min-height:460px; } .schema-textarea { min-height:260px; } }
+    @media (max-width: 640px) { .preview-shell, .preview-content { min-height:420px; } .preview-shell:before { inset:10px; } .slide-number { font-size:100px; } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel">
+    const { useEffect, useMemo, useRef, useState } = React;
+
+    const INITIAL_SCHEMA = {
+      project: "signal-in-motion",
+      fps: 30,
+      duration: 10.8,
+      easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+      slides: [
+        {
+          id: "mission", index: "01", label: "Mission / kinetic type", start: 0, end: 3.6,
+          nodes: [
+            { type: "text", id: "mission-kicker", text: "CORE MISSION", start: 0.18, duration: 0.6, exit: 3.08, x: 10, y: 19 },
+            { type: "text", id: "mission-title", text: "MAKE DATA MOVE.", start: 0.36, duration: 1.25, exit: 3.2, x: 10, y: 31 },
+            { type: "text", id: "mission-subtitle", text: "Turn complexity into a clear direction.", start: 1.72, duration: 0.9, exit: 3.18, x: 10, y: 79 }
+          ]
+        },
+        {
+          id: "signal", index: "02", label: "Signal / line graph", start: 3.6, end: 7.3,
+          nodes: [
+            { type: "svg-graph", id: "adoption-curve", label: "ADOPTION CURVE", start: 3.95, duration: 2.0, exit: 7.06, points: [12, 235, 130, 214, 242, 196, 352, 124, 464, 90, 585, 36] },
+            { type: "coordinate-marker", id: "peak-marker", label: "+42.8%", start: 5.92, duration: 0.65, exit: 7.08, x: 86, y: 17 },
+            { type: "text", id: "signal-title", text: "MOMENTUM IS VISIBLE.", start: 6.05, duration: 0.8, exit: 7.18, x: 10, y: 81 }
+          ]
+        },
+        {
+          id: "growth", index: "03", label: "Growth / counters", start: 7.3, end: 10.8,
+          nodes: [
+            { type: "text", id: "growth-kicker", text: "GROWTH TIMELINE", start: 7.48, duration: 0.55, exit: 10.3, x: 10, y: 17 },
+            { type: "coordinate-marker", id: "growth-2023", label: "2023", start: 7.75, duration: 0.65, exit: 10.35, x: 25, y: 49, value: 18 },
+            { type: "coordinate-marker", id: "growth-2024", label: "2024", start: 8.18, duration: 0.65, exit: 10.35, x: 50, y: 49, value: 42 },
+            { type: "coordinate-marker", id: "growth-2025", label: "2025", start: 8.61, duration: 0.65, exit: 10.35, x: 75, y: 49, value: 86 },
+            { type: "text", id: "growth-caption", text: "SMALL SIGNALS. COMPOUNDING IMPACT.", start: 9.38, duration: 0.75, exit: 10.55, x: 10, y: 82 }
+          ]
+        }
+      ]
+    };
+
+    const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
+    const ease = (value) => {
+      const t = clamp(value);
+      // cubic-bezier(0.16, 1, 0.3, 1), solved by binary search for a deterministic timeline.
+      let low = 0, high = 1, u = t;
+      for (let i = 0; i < 12; i++) {
+        const x = 3 * (1-u) * (1-u) * u * .16 + 3 * (1-u) * u * u * .3 + u*u*u;
+        if (x < t) low = u; else high = u;
+        u = (low + high) / 2;
+      }
+      return 3 * (1-u) * (1-u) * u * 1 + 3 * (1-u) * u * u * 1 + u*u*u;
+    };
+    const nodeProgress = (time, node) => ease(clamp((time - node.start) / (node.duration || .8)));
+    const nodeOpacity = (time, node) => {
+      const entry = nodeProgress(time, node);
+      const exit = node.exit == null ? 1 : 1 - ease(clamp((time - node.exit) / (node.exitDuration || .42)));
+      return clamp(entry * exit);
+    };
+    const formatTime = (seconds) => `${seconds.toFixed(2).padStart(5, '0')}s`;
+    const iconPaths = {
+      play: <path d="m13 5 7 7-7 7V5ZM4 5v14" />,
+      pause: <><rect x="5" y="4" width="4" height="16" rx="1"/><rect x="15" y="4" width="4" height="16" rx="1"/></>,
+      reset: <><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></>,
+      stepBack: <><path d="m19 5-8 7 8 7V5Z"/><path d="m11 5-8 7 8 7V5Z"/></>,
+      stepForward: <><path d="m5 5 8 7-8 7V5Z"/><path d="m13 5 8 7-8 7V5Z"/></>,
+      upload: <><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/></>,
+      code: <><path d="m8 9-3 3 3 3"/><path d="m16 9 3 3-3 3"/><path d="m14 5-4 14"/></>,
+      expand: <><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5"/></>,
+    };
+    function Icon({ name, size = 14 }) { return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{iconPaths[name]}</svg>; }
+
+    function SlideFrame({ slide, time }) {
+      if (slide.id === 'mission') return <MissionSlide slide={slide} time={time} />;
+      if (slide.id === 'signal') return <SignalSlide slide={slide} time={time} />;
+      return <GrowthSlide slide={slide} time={time} />;
+    }
+
+    function MissionSlide({ slide, time }) {
+      const titleNode = slide.nodes.find(n => n.id === 'mission-title');
+      const words = titleNode.text.split(' ');
+      return <div className="preview-content grid-bg px-10 py-9 sm:px-16 sm:py-12 flex flex-col justify-between">
+        <div className="flex justify-between items-start">
+          <div className="micro text-neutral-500">{slide.index} / {slide.label}</div>
+          <div className="micro mono text-neutral-600">x: {String(Math.round(time * 30)).padStart(3, '0')} // 030 fps</div>
+        </div>
+        <div>
+          <div className="red-rule mb-7" style={{ opacity: nodeOpacity(time, slide.nodes[0]) }} />
+          <div className="micro mono text-neutral-500 mb-5" style={{ opacity: nodeOpacity(time, slide.nodes[0]) }}>{slide.nodes[0].text}</div>
+          <h2 className="slide-title max-w-[680px] flex flex-wrap gap-x-[.25em] gap-y-1">
+            {words.map((word, index) => {
+              const p = ease(clamp((time - (titleNode.start + index * .18)) / .72));
+              return <span key={word + index} className={word.includes('.') ? 'word signal' : 'word'} style={{ opacity:p, transform:`translate3d(${(1-p)*42}px, ${(1-p)*8}px, 0)` }}>{word}</span>;
+            })}
+          </h2>
+          <p className="mt-7 max-w-[340px] text-[13px] leading-6 text-neutral-500" style={{ opacity:nodeOpacity(time, slide.nodes[2]), transform:`translateY(${(1-nodeProgress(time, slide.nodes[2]))*12}px)` }}>{slide.nodes[2].text}</p>
+        </div>
+        <div className="flex items-end justify-between">
+          <div className="micro mono text-neutral-600">KINETIC TYPE / ENTRY 01</div>
+          <div className="slide-number absolute right-9 bottom-7">01</div>
+        </div>
+      </div>;
+    }
+
+    function SignalSlide({ slide, time }) {
+      const graph = slide.nodes.find(n => n.type === 'svg-graph');
+      const marker = slide.nodes.find(n => n.id === 'peak-marker');
+      const title = slide.nodes.find(n => n.id === 'signal-title');
+      const graphProgress = nodeProgress(time, graph);
+      const path = `M ${graph.points[0]} ${graph.points[1]} C 96 224, 112 219, 130 214 S 210 205, 242 196 S 312 150, 352 124 S 431 101, 464 90 S 548 51, 585 36`;
+      return <div className="preview-content grid-bg px-8 py-8 sm:px-14 sm:py-11 flex flex-col justify-between">
+        <div className="flex justify-between items-start">
+          <div><div className="micro text-neutral-500">{slide.index} / {slide.label}</div><div className="mt-3 text-[12px] text-neutral-400">Weekly active signal</div></div>
+          <div className="micro mono text-neutral-600">stroke / 2.0s</div>
+        </div>
+        <div className="relative -mt-4">
+          <svg viewBox="0 0 640 290" className="w-full overflow-visible" role="img" aria-label="Animated adoption curve">
+            {[58, 116, 174, 232].map(y => <line key={y} x1="12" x2="620" y1={y} y2={y} className="axis-line" />)}
+            <line x1="12" x2="620" y1="250" y2="250" className="axis-line" />
+            <text x="12" y="273" className="axis-label">JAN</text><text x="206" y="273" className="axis-label">APR</text><text x="400" y="273" className="axis-label">JUL</text><text x="585" y="273" className="axis-label">OCT</text>
+            <path d={path} pathLength="1" className="graph-path" style={{ opacity:nodeOpacity(time, graph) }} strokeDasharray="1" strokeDashoffset={1-graphProgress} />
+            {[{x:130,y:214,p:.2},{x:242,y:196,p:.39},{x:352,y:124,p:.58},{x:464,y:90,p:.75},{x:585,y:36,p:1}].map((point, index) => <circle key={index} cx={point.x} cy={point.y} r="5" className="graph-dot" style={{ opacity:clamp((graphProgress-point.p)*12) * nodeOpacity(time, graph) }} />)}
+          </svg>
+          <div className="absolute top-[5%] right-[2%] text-right" style={{ opacity:nodeOpacity(time, marker), transform:`translateY(${(1-nodeProgress(time, marker))*9}px)` }}>
+            <div className="micro signal">{marker.label}</div><div className="mono text-[10px] text-neutral-600 mt-1">PEAK SIGNAL</div>
+          </div>
+        </div>
+        <div style={{ opacity:nodeOpacity(time, title), transform:`translateY(${(1-nodeProgress(time, title))*14}px)` }} className="flex items-end justify-between gap-6">
+          <div><div className="red-rule mb-4"/><h2 className="text-[clamp(28px,4vw,56px)] font-bold leading-[.9] tracking-[-.06em]">MOMENTUM<br/><span className="signal">IS VISIBLE.</span></h2></div>
+          <div className="slide-number">02</div>
+        </div>
+      </div>;
+    }
+
+    function GrowthSlide({ slide, time }) {
+      const kicker = slide.nodes.find(n => n.id === 'growth-kicker');
+      const caption = slide.nodes.find(n => n.id === 'growth-caption');
+      const points = slide.nodes.filter(n => n.type === 'coordinate-marker');
+      return <div className="preview-content grid-bg px-8 py-8 sm:px-14 sm:py-11 flex flex-col justify-between">
+        <div className="flex justify-between items-start" style={{ opacity:nodeOpacity(time, kicker) }}>
+          <div><div className="micro text-neutral-500">{slide.index} / {slide.label}</div><div className="red-rule mt-4"/></div>
+          <div className="micro mono text-neutral-600">counter / scale / sequence</div>
+        </div>
+        <div className="relative mt-5">
+          <div className="absolute top-1/2 left-[8%] right-[8%] h-px bg-neutral-700" />
+          <div className="grid grid-cols-3 gap-4 relative">
+            {points.map((point, index) => {
+              const p = nodeProgress(time, point);
+              const number = Math.round(point.value * ease(clamp((time - point.start) / .9)));
+              return <div key={point.id} className="text-center">
+                <div className="h-28 flex items-center justify-center"><div className="border-2 border-signal rounded-full flex items-center justify-center" style={{ width: `${18 + p*60}px`, height:`${18 + p*60}px`, opacity:clamp(p*2), boxShadow:`0 0 ${p*24}px rgba(255,48,48,${p*.45})` }}><span className="signal text-[11px] mono">{String(index+1).padStart(2,'0')}</span></div></div>
+                <div className="mt-4 counter text-4xl sm:text-5xl font-semibold" style={{ opacity:clamp(p*2), transform:`translateY(${(1-p)*12}px)` }}>{number}<span className="signal text-2xl">%</span></div>
+                <div className="micro mono text-neutral-600 mt-2">{point.label}</div>
+              </div>;
+            })}
+          </div>
+        </div>
+        <div style={{ opacity:nodeOpacity(time, caption), transform:`translateY(${(1-nodeProgress(time, caption))*12}px)` }} className="flex items-end justify-between gap-5"><div className="text-[13px] leading-5 text-neutral-500 max-w-[260px]">{caption.text}</div><div className="slide-number">03</div></div>
+      </div>;
+    }
+
+    function Timeline({ schema, time, setTime, activeSlide }) {
+      const timelineRef = useRef(null);
+      const jump = (event) => { const rect = timelineRef.current.getBoundingClientRect(); setTime(clamp((event.clientX - rect.left) / rect.width) * schema.duration); };
+      return <div className="panel p-4 sm:p-5 mt-4">
+        <div className="flex items-center justify-between mb-4"><div className="micro text-neutral-500">Timeline / event tracks</div><div className="mono text-[10px] text-neutral-600">{schema.fps} FPS <span className="mx-2">·</span> {schema.duration.toFixed(1)} SEC</div></div>
+        <div className="space-y-2">
+          {schema.slides.map(slide => <div key={slide.id} className="grid grid-cols-[78px_1fr] sm:grid-cols-[120px_1fr] gap-3 items-center"><div className={`mono text-[10px] ${activeSlide.id===slide.id ? 'text-paper' : 'text-neutral-600'}`}>{slide.index} <span className="ml-2">{slide.id}</span></div><div className="timeline-track" ref={slide.id===schema.slides[0].id ? timelineRef : null} onClick={jump}><div className={`track-segment ${activeSlide.id===slide.id ? 'active' : ''}`} style={{left:`${slide.start/schema.duration*100}%`, width:`${(slide.end-slide.start)/schema.duration*100}%`}}>{slide.label}</div></div></div>)}
+        </div>
+        <div className="relative ml-[81px] sm:ml-[123px]"><div className="timeline-ruler"><span>0.0s</span><span>2.7s</span><span>5.4s</span><span>8.1s</span><span>{schema.duration.toFixed(1)}s</span></div><div className="playhead" style={{left:`${time/schema.duration*100}%`, top:'-118px', height:'122px'}} /></div>
+      </div>;
+    }
+
+    function App() {
+      const [schema, setSchema] = useState(INITIAL_SCHEMA);
+      const [schemaText, setSchemaText] = useState(JSON.stringify(INITIAL_SCHEMA, null, 2));
+      const [time, setTime] = useState(.72);
+      const [playing, setPlaying] = useState(false);
+      const [schemaError, setSchemaError] = useState('');
+      const [copied, setCopied] = useState(false);
+      const activeSlide = useMemo(() => schema.slides.find(slide => time >= slide.start && time < slide.end) || schema.slides[schema.slides.length - 1], [schema, time]);
+      const raf = useRef(null);
+      useEffect(() => {
+        if (!playing) return;
+        let previous = performance.now();
+        const tick = now => { const delta = (now - previous) / 1000; previous = now; setTime(current => { const next = current + delta; return next >= schema.duration ? 0 : next; }); raf.current = requestAnimationFrame(tick); };
+        raf.current = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(raf.current);
+      }, [playing, schema.duration]);
+      useEffect(() => { const onKey = event => { if (event.code === 'Space') { event.preventDefault(); setPlaying(value => !value); } if (event.code === 'ArrowRight') setTime(value => Math.min(schema.duration, value + .25)); if (event.code === 'ArrowLeft') setTime(value => Math.max(0, value - .25)); }; window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey); }, [schema.duration]);
+      const applySchema = () => { try { const next = JSON.parse(schemaText); if (!next.slides || !Array.isArray(next.slides) || next.slides.some(slide => !slide.id || typeof slide.start !== 'number' || typeof slide.end !== 'number')) throw new Error('Schema needs slides with id, start, and end.'); setSchema(next); setTime(0); setSchemaError(''); } catch (error) { setSchemaError(error.message); } };
+      const copySchema = async () => { try { await navigator.clipboard.writeText(schemaText); setCopied(true); setTimeout(() => setCopied(false), 1300); } catch (e) {} };
+      const goToSlide = slide => { setPlaying(false); setTime(slide.start + .02); };
+      return <div className="min-h-screen bg-ink">
+        <header className="border-b hairline px-5 sm:px-8 py-4 flex items-center justify-between gap-5">
+          <div className="flex items-center gap-4"><div className="flex items-center gap-2"><span className="status-dot pulse"/><span className="font-semibold tracking-[-.03em]">FRAME<span className="signal">/01</span></span></div><span className="hidden sm:block h-4 w-px bg-neutral-800"/><span className="hidden sm:block micro mono text-neutral-600">motion graphics timeline engine</span></div>
+          <div className="flex items-center gap-3"><div className="hidden md:flex items-center gap-2 mono text-[10px] text-neutral-500"><span className="status-dot"/> ENGINE READY</div><button className="icon-button" title="Copy timeline schema" onClick={copySchema}><Icon name="code"/></button><button className="icon-button" title="Expand preview"><Icon name="expand"/></button></div>
+        </header>
+        <main className="max-w-[1500px] mx-auto px-5 sm:px-8 py-8 sm:py-10">
+          <section className="mb-8 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5"><div><div className="micro mono signal mb-3">Project 06 / render lab</div><h1 className="text-4xl sm:text-6xl font-semibold tracking-[-.07em] leading-none">Signal in motion.</h1><p className="text-sm text-neutral-500 mt-4 max-w-[470px] leading-6">A schema-driven playback surface for kinetic type, chart strokes, coordinates, and counter-based transitions.</p></div><div className="flex gap-2"><div className="metric-card px-4 py-3 min-w-[118px]"><div className="micro mono text-neutral-600">loaded slides</div><div className="text-2xl mt-1 font-semibold">{schema.slides.length}<span className="signal">/03</span></div></div><div className="metric-card px-4 py-3 min-w-[118px]"><div className="micro mono text-neutral-600">schema state</div><div className="text-sm mt-2 text-neutral-300">{schemaError ? 'invalid' : 'valid'}</div></div></div></section>
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.55fr)_minmax(340px,.7fr)] gap-4 items-start">
+            <section>
+              <div className="panel overflow-hidden"><div className="px-4 sm:px-5 py-3 border-b hairline flex items-center justify-between"><div className="flex items-center gap-3"><span className="micro mono text-neutral-500">Output preview</span><span className="text-[10px] text-neutral-700">/</span><span className="mono text-[10px] text-neutral-600">{activeSlide.index} {activeSlide.id}</span></div><div className="flex items-center gap-2"><span className="mono text-[10px] text-neutral-600">{formatTime(time)}</span><span className="w-px h-3 bg-neutral-800"/><span className="mono text-[10px] signal">{playing ? 'PLAYING' : 'PAUSED'}</span></div></div><div className="preview-shell"><SlideFrame slide={activeSlide} time={time}/></div><div className="border-t hairline px-4 sm:px-5 py-3 flex items-center justify-between"><div className="flex items-center gap-2"><button className="icon-button" title="Previous frame" onClick={() => setTime(value => Math.max(0, value-.25))}><Icon name="stepBack"/></button><button className="icon-button primary" title={playing ? 'Pause' : 'Play'} onClick={() => setPlaying(value => !value)}><Icon name={playing ? 'pause' : 'play'}/></button><button className="icon-button" title="Next frame" onClick={() => setTime(value => Math.min(schema.duration, value+.25))}><Icon name="stepForward"/></button><button className="icon-button" title="Reset" onClick={() => {setPlaying(false);setTime(0)}}><Icon name="reset"/></button></div><div className="hidden sm:block micro mono text-neutral-600">SPACE play / ← → scrub</div><div className="mono text-[10px] text-neutral-500">{Math.round(time*schema.fps).toString().padStart(3,'0')} <span className="text-neutral-700">/ {Math.round(schema.duration*schema.fps)}</span></div></div></div>
+              <Timeline schema={schema} time={time} setTime={setTime} activeSlide={activeSlide}/>
+              <div className="mt-4 grid grid-cols-3 gap-2">{schema.slides.map(slide => <button key={slide.id} className={`text-left px-3 py-3 border rounded-[4px] transition-colors ${activeSlide.id===slide.id ? 'border-neutral-500 bg-neutral-900' : 'border-neutral-800 bg-neutral-950 hover:border-neutral-600'}`} onClick={() => goToSlide(slide)}><div className="micro mono signal">{slide.index}</div><div className="text-[11px] text-neutral-400 mt-2 truncate">{slide.label}</div></button>)}</div>
+            </section>
+            <aside className="panel overflow-hidden"><div className="px-4 sm:px-5 py-3 border-b hairline flex items-center justify-between"><div className="flex items-center gap-3"><Icon name="code" size={15}/><span className="micro mono text-neutral-400">Timeline schema</span></div><span className={`mono text-[10px] ${schemaError ? 'text-red-400' : 'text-neutral-600'}`}>{schemaError ? 'ERROR' : 'JSON / v1'}</span></div><div className="p-3 sm:p-4 bg-[#080808]"><textarea className="schema-textarea scroll-thin" spellCheck="false" value={schemaText} onChange={event => setSchemaText(event.target.value)} aria-label="Animation timeline JSON schema"/></div><div className="border-t hairline p-4"><div className="flex items-center justify-between gap-3 mb-4"><div className="flex items-center gap-2"><span className="w-2 h-2 border border-signal rounded-full"/><span className="micro mono text-neutral-500">Input contract</span></div><span className="mono text-[10px] text-neutral-700">{schemaText.split('\n').length} lines</span></div><div className="grid grid-cols-2 gap-y-3 gap-x-5 text-[11px]"><div><div className="mono text-neutral-600">TEXT NODES</div><div className="mt-1 text-neutral-300">kinetic entry / exit</div></div><div><div className="mono text-neutral-600">SVG PATHS</div><div className="mt-1 text-neutral-300">stroke draw / 2.0s</div></div><div><div className="mono text-neutral-600">COORDINATES</div><div className="mt-1 text-neutral-300">markers / scale</div></div><div><div className="mono text-neutral-600">EASING</div><div className="mt-1 text-signal">cubic-bezier</div></div></div>{schemaError && <div className="mt-4 p-3 border border-red-900 bg-red-950/20 text-[11px] text-red-300 mono">{schemaError}</div>}<button onClick={applySchema} className="mt-5 w-full border border-neutral-600 hover:border-neutral-300 bg-neutral-100 hover:bg-white text-black py-3 rounded-[4px] text-[11px] font-semibold tracking-[.12em] transition-colors">APPLY SCHEMA <span className="text-neutral-500 ml-2">↵</span></button><button onClick={copySchema} className="mt-2 w-full border border-neutral-800 hover:border-neutral-600 text-neutral-500 hover:text-neutral-300 py-2 rounded-[4px] text-[10px] mono transition-colors">{copied ? 'COPIED TO CLIPBOARD' : 'COPY JSON'}</button></div></aside>
+          </div>
+          <footer className="mt-8 pt-4 border-t hairline flex flex-col sm:flex-row gap-2 justify-between text-[10px] mono text-neutral-700"><span>FRAME/01 — PROGRAMMATIC MOTION SYSTEM</span><span>NO ASSETS / PURE DOM + SVG / {new Date().getFullYear()}</span></footer>
+        </main>
+      </div>;
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

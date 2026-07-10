@@ -1,1 +1,0 @@
-document.body.style.background='lime';document.getElementById('x').textContent='SCRIPT RAN';

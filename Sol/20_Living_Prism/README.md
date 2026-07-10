@@ -32,7 +32,7 @@ Create the path-safe static artifact consumed by the Model Observatory:
 pnpm build:showcase
 ```
 
-This writes `out/` with the Observatory demo base path already applied. Review and commit that export when the experiment changes; the parent catalogue intentionally does not execute nested application builds.
+This writes `out/` with the Observatory demo base path already applied, then inlines the compiled stylesheet into `out/index.html` so Tailwind styles work inside the Observatory's opaque-origin sandbox. Review and commit that export when the experiment changes; the parent catalogue intentionally does not execute nested application builds.
 
 ## Interaction
 

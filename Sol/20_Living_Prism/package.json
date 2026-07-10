@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:showcase": "cross-env NEXT_PUBLIC_OBSERVATORY_BASE_PATH=/generated/demos/sol/living-prism next build",
+    "build:showcase": "cross-env NEXT_PUBLIC_OBSERVATORY_BASE_PATH=/generated/demos/sol/living-prism next build && node scripts/make-sandbox-compatible.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

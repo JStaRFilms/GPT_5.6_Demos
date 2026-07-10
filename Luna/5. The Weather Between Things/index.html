@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f2efe9" />
+  <title>The Weather Between Things — Field Notes No. 05</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #f2efe9;
+      --paper-deep: #e9e4dc;
+      --ink: #252421;
+      --muted: #78736a;
+      --line: rgba(37, 36, 33, .18);
+      --line-light: rgba(242, 239, 233, .28);
+      --rust: #aa4c30;
+      --olive: #68705c;
+      --display: 'Cormorant Garamond', Georgia, serif;
+      --mono: 'DM Mono', monospace;
+      --sans: 'Manrope', sans-serif;
+      --scroll-progress: 0;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--paper); scroll-behavior: auto; }
+    body { margin: 0; color: var(--ink); background: var(--paper); font-family: var(--sans); overflow-x: hidden; cursor: none; }
+    body::before { content: ''; position: fixed; inset: 0; z-index: 20; pointer-events: none; opacity: .095; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.28'/%3E%3C/svg%3E"); mix-blend-mode: multiply; }
+    button, a { color: inherit; font: inherit; cursor: none; }
+    button { padding: 0; border: 0; background: none; }
+    a { text-decoration: none; }
+    ::selection { color: var(--paper); background: var(--rust); }
+
+    #ink-canvas { position: fixed; inset: 0; z-index: 50; pointer-events: none; }
+    .cursor-core { position: fixed; z-index: 51; width: 8px; height: 8px; border: 1px solid var(--ink); border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%); transition: width .25s ease, height .25s ease, background .25s ease, border-color .25s ease; mix-blend-mode: multiply; }
+    body.cursor-hover .cursor-core { width: 40px; height: 40px; background: var(--rust); border-color: var(--rust); mix-blend-mode: normal; }
+    body.cursor-hover .cursor-core::after { content: 'view'; position: absolute; inset: 0; display: grid; place-items: center; color: var(--paper); font: 8px var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+    @media (pointer: coarse) { body, button, a { cursor: auto; } #ink-canvas, .cursor-core { display: none; } }
+
+    .site-header { position: fixed; z-index: 30; top: 0; left: 0; right: 0; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 28px 42px; pointer-events: none; mix-blend-mode: multiply; }
+    .site-header > * { pointer-events: auto; }
+    .wordmark, .issue-label { font: 500 10px var(--mono); letter-spacing: .11em; text-transform: uppercase; }
+    .wordmark { display: flex; align-items: center; gap: 12px; }
+    .wordmark-mark { width: 20px; height: 20px; position: relative; border: 1px solid currentColor; border-radius: 50%; }
+    .wordmark-mark::after { content: ''; position: absolute; top: 50%; left: -4px; width: 27px; border-top: 1px solid currentColor; transform: rotate(-45deg); }
+    .issue-label { color: var(--muted); text-align: center; }
+    .header-time { justify-self: end; display: flex; gap: 12px; color: var(--muted); font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    .header-time strong { color: var(--ink); font-weight: 500; }
+
+    .scroll-progress { position: fixed; z-index: 31; top: 0; left: 0; height: 2px; width: calc(var(--scroll-progress) * 100%); background: var(--rust); transform-origin: left; }
+    .side-index { position: fixed; z-index: 30; top: 50%; right: 42px; display: grid; gap: 14px; transform: translateY(-50%); }
+    .index-item { position: relative; display: flex; align-items: center; justify-content: flex-end; gap: 10px; color: var(--muted); font: 9px var(--mono); letter-spacing: .08em; opacity: .65; transition: opacity .35s ease, color .35s ease; }
+    .index-item::after { content: ''; width: 5px; height: 5px; border: 1px solid currentColor; border-radius: 50%; transition: background .35s ease, transform .35s ease; }
+    .index-item.active { color: var(--rust); opacity: 1; }
+    .index-item.active::after { background: currentColor; transform: scale(1.5); }
+
+    .scrolly { height: 500vh; }
+    .stage { position: sticky; top: 0; height: 100vh; min-height: 620px; overflow: hidden; background: var(--paper); }
+    .rail { display: flex; height: 100%; width: 500vw; will-change: transform; transform: translate3d(0,0,0); }
+    .chapter { position: relative; flex: 0 0 100vw; height: 100%; overflow: hidden; padding: 148px 10vw 72px; }
+    .chapter::after { content: attr(data-chapter); position: absolute; right: 10vw; bottom: 45px; color: rgba(37,36,33,.13); font: 128px var(--display); line-height: .7; }
+    .chapter-inner { position: relative; z-index: 2; width: 100%; height: 100%; }
+
+    .chapter-kicker { display: flex; align-items: center; gap: 12px; color: var(--rust); font: 10px var(--mono); letter-spacing: .16em; text-transform: uppercase; }
+    .chapter-kicker::before { content: ''; width: 34px; border-top: 1px solid currentColor; }
+    .chapter h1, .chapter h2, .chapter h3, .chapter p { margin-top: 0; }
+    .chapter h1 { max-width: 900px; margin-bottom: 26px; color: var(--ink); font: 500 clamp(72px, 10vw, 166px)/.76 var(--display); letter-spacing: -.055em; }
+    .chapter h1 em { color: var(--rust); font-style: italic; }
+    .chapter h2 { color: var(--ink); font: 500 clamp(44px, 6vw, 98px)/.84 var(--display); letter-spacing: -.045em; }
+    .chapter-copy { max-width: 430px; color: var(--muted); font-size: 13px; line-height: 1.8; }
+    .chapter-copy.dropcap::first-letter { float: left; margin: .13em .12em 0 0; color: var(--ink); font: 600 74px/.63 var(--display); }
+    .chapter-note { position: absolute; bottom: 3px; left: 0; display: flex; gap: 28px; color: var(--muted); font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+
+    .hero-chapter { padding-top: 190px; }
+    .hero-chapter .chapter-kicker { margin-bottom: 34px; }
+    .hero-chapter h1 { position: relative; z-index: 2; max-width: 780px; margin-left: -7px; }
+    .hero-subtitle { display: flex; align-items: flex-start; gap: 55px; margin-top: 48px; margin-left: 11vw; }
+    .hero-subtitle .chapter-copy { width: 265px; }
+    .hero-stamp { position: absolute; right: 7vw; top: 30%; width: 118px; height: 118px; display: grid; place-items: center; border: 1px solid var(--rust); border-radius: 50%; color: var(--rust); font: 9px var(--mono); text-align: center; text-transform: uppercase; letter-spacing: .08em; transform: rotate(12deg); }
+    .hero-stamp::before { content: ''; position: absolute; inset: 8px; border: 1px solid currentColor; border-radius: 50%; }
+    .hero-stamp span { width: 65px; }
+    .hero-line { position: absolute; top: 18%; right: 22%; width: 1px; height: 52%; background: var(--line); }
+    .hero-line::after { content: ''; position: absolute; top: 0; left: -2px; width: 5px; height: 5px; border-radius: 50%; background: var(--rust); }
+
+    .chapter-two { background: #e9e4dc; }
+    .chapter-two .chapter-inner { display: grid; grid-template-columns: 1.1fr .85fr; align-items: center; gap: 8vw; }
+    .chapter-two .chapter-kicker { margin-bottom: 35px; }
+    .chapter-two h2 { max-width: 540px; margin-bottom: 38px; }
+    .chapter-two .chapter-copy { margin-left: 8vw; }
+    .annotation { position: absolute; right: 2vw; top: 15%; width: 170px; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); color: var(--muted); font: 10px/1.6 var(--mono); }
+    .annotation strong { display: block; margin-bottom: 8px; color: var(--rust); font-weight: 500; }
+
+    .quote-chapter { background: var(--ink); color: var(--paper); }
+    .quote-chapter::after { color: rgba(242,239,233,.08); }
+    .quote-chapter .chapter-inner { display: flex; align-items: center; justify-content: center; }
+    .quote-wrap { width: min(920px, 80vw); position: relative; padding: 0 5vw; }
+    .quote-mark { position: absolute; top: -64px; left: -4px; color: var(--rust); font: 180px/.6 var(--display); }
+    blockquote { position: relative; margin: 0; font: 500 clamp(48px, 6.4vw, 105px)/.86 var(--display); letter-spacing: -.045em; }
+    blockquote em { color: #d7d0c2; font-style: italic; }
+    .quote-source { display: flex; align-items: center; gap: 14px; margin-top: 48px; color: rgba(242,239,233,.55); font: 10px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+    .quote-source::before { content: ''; width: 36px; border-top: 1px solid var(--rust); }
+
+    .image-chapter { padding: 0; background: #c9c2b8; }
+    .image-chapter .chapter-inner { display: grid; grid-template-columns: 39% 61%; align-items: center; }
+    .image-meta { position: relative; z-index: 2; padding-left: 10vw; }
+    .image-meta .chapter-kicker { margin-bottom: 30px; }
+    .image-meta h2 { max-width: 400px; margin-bottom: 26px; }
+    .image-meta .chapter-copy { max-width: 260px; }
+    .photo-frame { position: relative; height: 77%; margin-right: 10vw; overflow: hidden; border: 13px solid #e8e2d8; box-shadow: 0 22px 50px rgba(37,36,33,.2); transform: rotate(2.6deg); }
+    .photo-frame::before { content: ''; position: absolute; inset: 0; z-index: 1; border: 1px solid rgba(37,36,33,.3); pointer-events: none; }
+    .photo-frame img { width: 100%; height: 100%; display: block; object-fit: cover; filter: sepia(.45) saturate(.7) contrast(1.05); transform: scale(1.07); transition: transform 1.4s cubic-bezier(.2,.7,.2,1); }
+    .photo-frame:hover img { transform: scale(1.01); }
+    .photo-caption { position: absolute; z-index: 3; right: 18px; bottom: 15px; color: #f2efe9; font: 9px var(--mono); letter-spacing: .08em; text-transform: uppercase; text-shadow: 0 1px 10px #252421; }
+    .film-edge { position: absolute; z-index: 4; top: 50%; left: 0; width: 100%; display: flex; justify-content: space-around; pointer-events: none; transform: translateY(-50%); }
+    .film-edge i { width: 9px; height: 18px; border: 1px solid rgba(242,239,233,.6); }
+
+    .final-chapter { background: var(--paper); }
+    .final-chapter .chapter-inner { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 12vw; }
+    .final-chapter h2 { max-width: 570px; margin: 28px 0 35px; }
+    .final-chapter .chapter-copy { max-width: 310px; }
+    .closing-mark { position: relative; width: min(33vw, 420px); aspect-ratio: 1; justify-self: end; border: 1px solid var(--line); border-radius: 50%; }
+    .closing-mark::before, .closing-mark::after { content: ''; position: absolute; inset: 14%; border: 1px solid var(--rust); border-radius: 49% 51% 47% 53%; transform: rotate(28deg); }
+    .closing-mark::after { inset: 25%; border-color: var(--ink); transform: rotate(-34deg); }
+    .closing-mark span { position: absolute; top: 50%; left: 50%; width: 90%; transform: translate(-50%, -50%) rotate(-12deg); color: var(--rust); font: italic 26px var(--display); text-align: center; }
+    .credits { position: absolute; bottom: 3px; left: 0; color: var(--muted); font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+    .scroll-hint { position: fixed; z-index: 30; bottom: 33px; left: 42px; display: flex; align-items: center; gap: 11px; color: var(--muted); font: 9px var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+    .scroll-hint::before { content: ''; width: 30px; border-top: 1px solid currentColor; }
+    .scroll-hint b { color: var(--rust); font-weight: 500; }
+
+    @media (max-width: 900px) {
+      .site-header { padding: 22px 24px; }
+      .side-index { right: 24px; }
+      .chapter { padding-left: 9vw; padding-right: 9vw; }
+      .chapter::after { right: 8vw; }
+      .hero-stamp { right: 11vw; top: 23%; }
+      .image-meta { padding-left: 9vw; }
+      .photo-frame { margin-right: 8vw; }
+      .scroll-hint { left: 24px; }
+    }
+    @media (max-width: 640px) {
+      .site-header { grid-template-columns: 1fr auto; padding: 20px 18px; }
+      .issue-label { display: none; }
+      .header-time { gap: 7px; font-size: 8px; }
+      .side-index { top: auto; right: 18px; bottom: 23px; display: flex; transform: none; }
+      .index-item { font-size: 0; }
+      .index-item::after { width: 5px; height: 5px; }
+      .scroll-hint { display: none; }
+      .stage { min-height: 560px; }
+      .chapter { padding: 118px 9vw 50px; }
+      .chapter h1 { font-size: clamp(67px, 20vw, 105px); line-height: .78; }
+      .hero-chapter { padding-top: 160px; }
+      .hero-subtitle { display: block; margin: 38px 0 0 5vw; }
+      .hero-subtitle .chapter-copy { width: 230px; font-size: 12px; }
+      .hero-stamp { top: auto; right: 8vw; bottom: 14%; width: 88px; height: 88px; font-size: 7px; }
+      .hero-line { right: 16%; height: 32%; }
+      .chapter-two .chapter-inner, .final-chapter .chapter-inner { display: block; }
+      .chapter-two .chapter-copy { margin-left: 6vw; max-width: 275px; }
+      .annotation { top: 10%; right: 4vw; width: 120px; font-size: 8px; }
+      .quote-wrap { width: 92vw; padding: 0 3vw; }
+      .quote-mark { top: -36px; left: -6px; font-size: 100px; }
+      blockquote { font-size: clamp(45px, 13vw, 75px); }
+      .quote-source { margin-top: 32px; font-size: 8px; }
+      .image-chapter .chapter-inner { display: block; padding-top: 12vh; }
+      .image-meta { padding: 0 9vw; }
+      .image-meta h2 { max-width: 300px; margin-bottom: 13px; }
+      .image-meta .chapter-copy { max-width: 270px; font-size: 11px; }
+      .photo-frame { height: 46%; margin: 8vh 11vw 0 9vw; border-width: 9px; }
+      .final-chapter h2 { max-width: 320px; margin-top: 25px; }
+      .closing-mark { width: 45vw; margin: 8vh auto 0; }
+      .credits { bottom: -2px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="ink-canvas" aria-hidden="true"></canvas>
+  <div class="cursor-core" aria-hidden="true"></div>
+  <header class="site-header">
+    <a href="#top" class="wordmark" aria-label="The Weather Between Things, home"><span class="wordmark-mark"></span><span>Field notes / 05</span></a>
+    <div class="issue-label">The weather between things</div>
+    <div class="header-time"><span id="clock-time">00:00:00</span><strong id="coordinates">40° 42′ N</strong></div>
+  </header>
+  <div class="scroll-progress" aria-hidden="true"></div>
+  <nav class="side-index" aria-label="Chapter navigation">
+    <a class="index-item active" href="#chapter-01" data-index="0">01</a>
+    <a class="index-item" href="#chapter-02" data-index="1">02</a>
+    <a class="index-item" href="#chapter-03" data-index="2">03</a>
+    <a class="index-item" href="#chapter-04" data-index="3">04</a>
+    <a class="index-item" href="#chapter-05" data-index="4">05</a>
+  </nav>
+  <div class="scroll-hint"><b>Scroll</b><span>to traverse the field</span></div>
+
+  <main class="scrolly" id="top">
+    <div class="stage">
+      <div class="rail">
+        <section class="chapter hero-chapter" id="chapter-01" data-chapter="01">
+          <div class="chapter-inner">
+            <div class="chapter-kicker">An essay in five movements</div>
+            <h1>The weather<br />between <em>things.</em></h1>
+            <div class="hero-subtitle">
+              <p class="chapter-copy dropcap">Before a storm arrives, the world rehearses. A curtain lifts on the wet pavement. A gull turns its white underside to the wind. These are the small omens we keep, without knowing why.</p>
+              <p class="chapter-copy">A field recording from the edges of the visible. Written in the pause between leaving and becoming.</p>
+            </div>
+            <div class="hero-stamp"><span>Listen closely<br />there is more<br />than silence</span></div>
+            <div class="hero-line" aria-hidden="true"></div>
+            <div class="chapter-note"><span>North Atlantic / 1987</span><span>Archive 05—17</span></div>
+          </div>
+        </section>
+
+        <section class="chapter chapter-two" id="chapter-02" data-chapter="02">
+          <div class="chapter-inner">
+            <div>
+              <div class="chapter-kicker">01 / The first signal</div>
+              <h2>Nothing begins<br />all at once.</h2>
+              <p class="chapter-copy dropcap">The first signal is not a sound but a change in pressure. The light gathers itself into a different register. Somewhere a door is left open, and the room learns the shape of the outside.</p>
+            </div>
+            <div class="annotation"><strong>Observation no. 17</strong>Atmosphere is a soft archive. It keeps the trace of every body that passed through it.</div>
+            <div class="chapter-note"><span>Field note / 06:14</span><span>Wind: shifting</span></div>
+          </div>
+        </section>
+
+        <section class="chapter quote-chapter" id="chapter-03" data-chapter="03">
+          <div class="chapter-inner">
+            <div class="quote-wrap">
+              <span class="quote-mark">“</span>
+              <blockquote>We are made of <em>thresholds</em> —<br />the door, the tide, the held breath.</blockquote>
+              <div class="quote-source">Marginalia / unknown hand / 1962</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="chapter image-chapter" id="chapter-04" data-chapter="04">
+          <div class="chapter-inner">
+            <div class="image-meta">
+              <div class="chapter-kicker">02 / A wider silence</div>
+              <h2>Where the land<br />remembers water.</h2>
+              <p class="chapter-copy">At the coast, distance is not empty. It is crowded with weather, with all the past tense of the sea.</p>
+              <div class="chapter-note"><span>Low tide / 18:42</span></div>
+            </div>
+            <figure class="photo-frame">
+              <img src="https://images.unsplash.com/photo-1500534623283-312aade485b7?auto=format&fit=crop&w=1300&q=85" alt="A misty mountain range layered behind a quiet body of water" />
+              <div class="film-edge"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <figcaption class="photo-caption">Fig. 04 — western inlet</figcaption>
+            </figure>
+          </div>
+        </section>
+
+        <section class="chapter final-chapter" id="chapter-05" data-chapter="05">
+          <div class="chapter-inner">
+            <div>
+              <div class="chapter-kicker">03 / The return</div>
+              <h2>Keep a little<br /><em>room</em> for wonder.</h2>
+              <p class="chapter-copy dropcap">The story does not close. It folds, like a map returned to its pocket. What remains is a practice: to look again, to notice the temperature of a handrail, the hour hidden in a shadow.</p>
+              <div class="credits">Collected and composed by the interval studio / 2024</div>
+            </div>
+            <div class="closing-mark" aria-hidden="true"><span>the end is another<br />kind of beginning</span></div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      const rail = document.querySelector('.rail');
+      const scrolly = document.querySelector('.scrolly');
+      const progressBar = document.querySelector('.scroll-progress');
+      const indexItems = [...document.querySelectorAll('.index-item')];
+      const cursor = document.querySelector('.cursor-core');
+      const coordinates = document.querySelector('#coordinates');
+      const clockTime = document.querySelector('#clock-time');
+      const inkCanvas = document.querySelector('#ink-canvas');
+      const ctx = inkCanvas.getContext('2d');
+      const isTouch = matchMedia('(pointer: coarse)').matches;
+      const chapters = 5;
+      let targetScroll = window.scrollY;
+      let smoothScroll = targetScroll;
+      let rafId;
+      let lastTime = performance.now();
+      let mouse = { x: innerWidth / 2, y: innerHeight / 2, lastX: innerWidth / 2, lastY: innerHeight / 2, vx: 0, vy: 0 };
+      let trail = [];
+      let pulses = [];
+      let dpr = Math.min(devicePixelRatio || 1, 2);
+
+      function resizeCanvas() {
+        dpr = Math.min(devicePixelRatio || 1, 2);
+        inkCanvas.width = innerWidth * dpr;
+        inkCanvas.height = innerHeight * dpr;
+        inkCanvas.style.width = innerWidth + 'px';
+        inkCanvas.style.height = innerHeight + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+
+      function updateClock() {
+        const now = new Date();
+        clockTime.textContent = now.toLocaleTimeString([], { hour12: false });
+      }
+
+      function setChapter(id) {
+        const clamped = Math.max(0, Math.min(chapters - 1, id));
+        window.scrollTo({ top: (document.body.scrollHeight - innerHeight) * (clamped / (chapters - 1)), behavior: 'smooth' });
+      }
+
+      function updateScene() {
+        targetScroll = window.scrollY;
+        const maxScroll = Math.max(1, scrolly.offsetHeight - innerHeight);
+        const progress = Math.max(0, Math.min(1, targetScroll / maxScroll));
+        progressBar.style.setProperty('--scroll-progress', progress);
+        document.documentElement.style.setProperty('--scroll-progress', progress);
+        smoothScroll += (targetScroll - smoothScroll) * .085;
+        const horizontal = (smoothScroll / maxScroll) * (chapters - 1) * innerWidth;
+        rail.style.transform = `translate3d(${-horizontal}px, 0, 0)`;
+
+        const active = Math.min(chapters - 1, Math.round(progress * (chapters - 1)));
+        indexItems.forEach((item, index) => item.classList.toggle('active', index === active));
+        coordinates.textContent = `${(40 + progress * 2).toFixed(0)}° ${(42 + progress * 18).toFixed(0)}′ N`;
+        rafId = requestAnimationFrame(updateScene);
+      }
+
+      function moveCursor(event) {
+        if (isTouch) return;
+        const x = event.clientX;
+        const y = event.clientY;
+        mouse.vx = x - mouse.lastX;
+        mouse.vy = y - mouse.lastY;
+        mouse.x = x; mouse.y = y;
+        mouse.lastX = x; mouse.lastY = y;
+        cursor.style.left = x + 'px';
+        cursor.style.top = y + 'px';
+        const speed = Math.min(32, Math.hypot(mouse.vx, mouse.vy));
+        trail.push({ x, y, life: 1, size: 2.5 + speed * .18, angle: Math.atan2(mouse.vy, mouse.vx), spin: (Math.random() - .5) * .5, speed });
+        if (trail.length > 55) trail.shift();
+      }
+
+      function inkBurst(event) {
+        if (isTouch) return;
+        const amount = event.detail > 1 ? 22 : 11;
+        for (let i = 0; i < amount; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const force = 1.5 + Math.random() * 7;
+          pulses.push({ x: event.clientX, y: event.clientY, vx: Math.cos(angle) * force, vy: Math.sin(angle) * force, life: 1, size: Math.random() * 2 + 1 });
+        }
+      }
+
+      function drawInk(time) {
+        ctx.clearRect(0, 0, innerWidth, innerHeight);
+        ctx.globalCompositeOperation = 'multiply';
+        trail.forEach((point, index) => {
+          point.life *= .962;
+          const wave = Math.sin(time * .004 + index * .42) * point.speed * .22;
+          const alpha = point.life * .16 * (index / trail.length);
+          ctx.save();
+          ctx.translate(point.x + Math.cos(point.angle + Math.PI / 2) * wave, point.y + Math.sin(point.angle + Math.PI / 2) * wave);
+          ctx.rotate(point.angle + point.spin + Math.sin(time * .002 + index) * .6);
+          ctx.strokeStyle = `rgba(37,36,33,${alpha})`;
+          ctx.lineWidth = Math.max(.45, point.size * point.life);
+          ctx.beginPath();
+          ctx.moveTo(-point.size * 3, 0);
+          ctx.bezierCurveTo(-point.size, point.size * 2.6, point.size, -point.size * 2.6, point.size * 3, 0);
+          ctx.stroke();
+          ctx.restore();
+        });
+        trail = trail.filter(point => point.life > .035);
+        pulses.forEach(pulse => {
+          pulse.x += pulse.vx; pulse.y += pulse.vy; pulse.vx *= .965; pulse.vy *= .965; pulse.life *= .93;
+          ctx.fillStyle = `rgba(170,76,48,${pulse.life * .42})`;
+          ctx.beginPath(); ctx.arc(pulse.x, pulse.y, pulse.size * pulse.life, 0, Math.PI * 2); ctx.fill();
+        });
+        pulses = pulses.filter(pulse => pulse.life > .035);
+        requestAnimationFrame(drawInk);
+      }
+
+      indexItems.forEach(item => item.addEventListener('click', event => { event.preventDefault(); setChapter(Number(item.dataset.index)); }));
+      document.querySelectorAll('a, button, .photo-frame').forEach(el => {
+        el.addEventListener('mouseenter', () => document.body.classList.add('cursor-hover'));
+        el.addEventListener('mouseleave', () => document.body.classList.remove('cursor-hover'));
+      });
+      window.addEventListener('scroll', () => { targetScroll = window.scrollY; }, { passive: true });
+      window.addEventListener('resize', resizeCanvas);
+      window.addEventListener('mousemove', moveCursor, { passive: true });
+      window.addEventListener('click', inkBurst);
+      resizeCanvas(); updateClock(); setInterval(updateClock, 1000); updateScene(); drawInk(lastTime);
+    })();
+  </script>
+</body>
+</html>

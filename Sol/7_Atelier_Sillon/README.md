@@ -17,4 +17,4 @@ Create the path-safe static artifact consumed by the parent showcase:
 npm run build:showcase
 ```
 
-This writes the committed `out/` directory referenced by `showcase.json`. The build uses relative asset URLs and converts Vite's module tags into sandbox-safe classic script tags. This is required because the Observatory intentionally previews demos in an opaque-origin iframe without `allow-same-origin`. Rebuild `out/` whenever the application changes.
+This writes the committed `out/` directory referenced by `showcase.json`. The build inlines the compiled JavaScript and CSS into a self-contained `index.html`. This is required because the Observatory intentionally previews demos in an opaque-origin iframe without `allow-same-origin`; external Vite module scripts cannot initialize reliably there. Rebuild `out/` whenever the application changes.

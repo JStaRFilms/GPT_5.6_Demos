@@ -53,6 +53,8 @@
     const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; document.body.appendChild(renderer.domElement);
     const camera = new THREE.PerspectiveCamera(67, innerWidth/innerHeight, .1, 260);
+    // Start on a composed stadium-wide view so the arena is visible on the first frame.
+    camera.position.set(0, 14, 34); camera.lookAt(0, 0, 0);
     const world = new CANNON.World(); world.gravity.set(0,-18,0); world.broadphase = new CANNON.SAPBroadphase(world); world.solver.iterations = 12; world.allowSleep = true;
     const material = new CANNON.Material('arena'); const ballMaterial = new CANNON.Material('ball');
     world.addContactMaterial(new CANNON.ContactMaterial(material, ballMaterial, { friction:.28, restitution:.76 }));
@@ -70,7 +72,7 @@
     addStaticBox(new THREE.Vector3(0,-.3,0),new THREE.Vector3(36,.6,56),0x120b35);
     addStaticBox(new THREE.Vector3(-18,2,0),new THREE.Vector3(.7,4,56),0x16104a); addStaticBox(new THREE.Vector3(18,2,0),new THREE.Vector3(.7,4,56),0x16104a);
     for(const z of [-28,28]) { addStaticBox(new THREE.Vector3(-12,2,z),new THREE.Vector3(12,4,.7),0x211037); addStaticBox(new THREE.Vector3(12,2,z),new THREE.Vector3(12,4,.7),0x211037); addStaticBox(new THREE.Vector3(0,2,z+(z>0?3:-3)),new THREE.Vector3(12,4,.5),0x130d38); }
-    const field = new THREE.Mesh(new THREE.PlaneGeometry(35.3,55.3), new THREE.MeshStandardMaterial({color:0x100b2c,roughness:.72,metalness:.05})); field.rotation.x=-Math.PI/2; field.receiveShadow=true; scene.add(field);
+    const field = new THREE.Mesh(new THREE.PlaneGeometry(35.3,55.3), new THREE.MeshStandardMaterial({color:0x171047,emissive:0x0a0624,emissiveIntensity:.75,roughness:.72,metalness:.05})); field.rotation.x=-Math.PI/2; field.receiveShadow=true; scene.add(field);
     const grid = new THREE.GridHelper(56,28,0x2444a4,0x171148); grid.rotation.y=Math.PI/2; grid.scale.x=.625; grid.position.y=.025; scene.add(grid);
     const lineMat=new THREE.LineBasicMaterial({color:0x35baff,transparent:true,opacity:.5}); const circle=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(Array.from({length:65},(_,i)=>new THREE.Vector3(Math.cos(i/64*Math.PI*2)*5,.05,Math.sin(i/64*Math.PI*2)*5))),lineMat); scene.add(circle);
     const midLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-17.5,.06,0),new THREE.Vector3(17.5,.06,0)]),lineMat); scene.add(midLine);
@@ -88,7 +90,7 @@
     const ballMesh=new THREE.Group(); const ballBase=new THREE.Mesh(new THREE.SphereGeometry(1.5,28,20),new THREE.MeshStandardMaterial({color:0xeef4ff,roughness:.35,metalness:.14}));ballBase.castShadow=true; const ballWire=new THREE.Mesh(new THREE.SphereGeometry(1.515,12,8),new THREE.MeshBasicMaterial({color:0x1a1650,wireframe:true,transparent:true,opacity:.78}));ballMesh.add(ballBase,ballWire);scene.add(ballMesh);
     const ball=new CANNON.Body({mass:7,material:ballMaterial,linearDamping:.012,angularDamping:.02,position:new CANNON.Vec3(0,2.2,0)});ball.addShape(new CANNON.Sphere(1.5));world.addBody(ball);
     // Player car: physics chassis with a layered neon sports-car model.
-    const car=new CANNON.Body({mass:160,material,linearDamping:.08,angularDamping:1,position:new CANNON.Vec3(0,1.0,17)});car.addShape(new CANNON.Box(new CANNON.Vec3(1.35,.42,2.05)));car.angularFactor.set(0,0,0);world.addBody(car);
+    const car=new CANNON.Body({mass:160,material,linearDamping:.08,angularDamping:1,position:new CANNON.Vec3(0,1.0,17)});car.addShape(new CANNON.Box(new CANNON.Vec3(1.35,.42,2.05)));car.fixedRotation=true;car.updateMassProperties();world.addBody(car);
     const carMesh=new THREE.Group(); const carPaint=neonMat(0x1479ff,.6), darkPaint=new THREE.MeshStandardMaterial({color:0x09102f,metalness:.78,roughness:.22});
     const chassis=new THREE.Mesh(new THREE.BoxGeometry(2.7,.7,4.1),carPaint);chassis.position.y=.05;chassis.castShadow=true;carMesh.add(chassis);
     const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.8,.6,1.75),darkPaint);cabin.position.set(0,.58,-.2);cabin.castShadow=true;carMesh.add(cabin);

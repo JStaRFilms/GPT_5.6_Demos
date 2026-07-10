@@ -24,8 +24,8 @@ test("normalizes numbered experiment folder conventions", () => {
 });
 
 test("redacts private paths and secret-like values recursively", () => {
-  const text = redactText("Read C:\\Users\\person\\secret.txt and /home/person/.env with Bearer abcdefghijklmnop");
-  assert.equal(text.includes("C:\\Users"), false);
+  const text = redactText("Read C:\\Program Files\\Private App\\secret.txt and /home/person/.env with Bearer abcdefghijklmnop");
+  assert.equal(text.includes("C:\\Program Files"), false);
   assert.equal(text.includes("/home/person"), false);
   assert.equal(text.includes("abcdefghijklmnop"), false);
 

@@ -32,6 +32,8 @@ coverage/
 public/generated/
 src/generated/
 tsconfig.tsbuildinfo
+artifacts/
+.showcase-server.log
 
 # --- Local environment ---
 .env.*

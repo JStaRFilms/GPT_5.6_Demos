@@ -1,12 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { SiteShell } from "@/components/showcase/site-shell";
+import { getSiteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 export const viewport: Viewport = { themeColor: "#080a0b" };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://model-observatory.vercel.app"),
+  metadataBase: getSiteUrl(),
   title: { default: "Model Observatory — Sol / Terra / Luna", template: "%s — Model Observatory" },
   description: "A curated computational exhibition of runnable model experiments and their making.",
   keywords: ["generative interfaces", "model experiments", "computational design", "Sol", "Terra", "Luna"],

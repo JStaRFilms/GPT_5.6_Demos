@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import { basename, extname, join, relative, sep } from "node:path";
 import type {
   ModelId,
@@ -8,12 +8,19 @@ import type {
   TranscriptMessage
 } from "../src/types/showcase";
 
-const WINDOWS_PATH = /\b[A-Za-z]:\\(?:[^\s<>"'`|]+\\)*[^\s<>"'`|]*/g;
+const WINDOWS_PATH = /\b[A-Za-z]:\\[^\r\n<>"'`|]*/g;
 const UNIX_PRIVATE_PATH = /(^|[\s("'`])\/(?:Users|home|root|var|tmp|private|mnt|opt|srv)\/[^\s<>"'`)]*/g;
 const BEARER_TOKEN = /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/gi;
 const COMMON_SECRET = /\b(?:sk|ghp|github_pat|xox[abprs])[-_A-Za-z0-9]{12,}\b/g;
 const SECRET_KEY = /(token|secret|password|passwd|authorization|cookie|credential|api[-_]?key|private[-_]?key)/i;
 const MAX_PUBLIC_TEXT = 60_000;
+const PUBLIC_ASSET_EXTENSIONS = new Set([
+  ".html", ".css", ".js", ".mjs", ".cjs", ".json", ".wasm",
+  ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif", ".svg", ".ico",
+  ".mp3", ".wav", ".ogg", ".m4a", ".mp4", ".webm",
+  ".woff", ".woff2", ".ttf", ".otf",
+  ".glb", ".gltf", ".bin", ".obj", ".mtl", ".hdr", ".csv"
+]);
 
 interface RawPiEntry {
   type?: string;
@@ -294,7 +301,8 @@ export function isPublicDemoAsset(sourceRoot: string, candidate: string): boolea
   const segments = rel.split("/").map((segment) => segment.toLowerCase());
   const file = basename(candidate).toLowerCase();
   if (segments.some((segment) => ["docs", ".git", ".pi", "node_modules", "__pycache__"].includes(segment))) return false;
-  if (/^pi-session-.*\.html$/i.test(file) || file === "showcase.json") return false;
-  if ([".md", ".markdown"].includes(extname(file))) return false;
-  return statSync(candidate).isFile();
+  if (file.startsWith(".") || /^pi-session-.*\.html$/i.test(file) || file === "showcase.json") return false;
+  if (!PUBLIC_ASSET_EXTENSIONS.has(extname(file))) return false;
+  const stats = lstatSync(candidate);
+  return !stats.isSymbolicLink() && stats.isFile();
 }

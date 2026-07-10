@@ -1,8 +1,8 @@
 {
   "sessionId": "orch-20260710-020138",
   "title": "Sol Terra Luna Model Showcase",
-  "createdAt": "2026-07-10T02:01:03.766Z",
-  "updatedAt": "2026-07-10T02:01:03.766Z",
+  "createdAt": "2026-07-10T02:14:10.656Z",
+  "updatedAt": "2026-07-10T02:14:10.656Z",
   "mode": "hybrid",
   "lifecycle": {
     "genesis": {
@@ -176,7 +176,7 @@
       "id": "BLD-3",
       "title": "Hardening and deployment",
       "role": "code",
-      "status": "pending",
+      "status": "completed",
       "stage": "build",
       "workflow": "vibe-build",
       "preferredAgent": "coder",
@@ -186,15 +186,15 @@
       "checklist": [
         {
           "text": "Harden embedding",
-          "done": false
+          "done": true
         },
         {
           "text": "Document workflow",
-          "done": false
+          "done": true
         },
         {
           "text": "Run verification",
-          "done": false
+          "done": true
         }
       ],
       "objective": "Make the implementation maintainable, safe, and Vercel-ready.",
@@ -218,13 +218,14 @@
       "dependencies": [
         "BLD-2"
       ],
-      "conversationId": "coder-BLD-3"
+      "conversationId": "coder-BLD-3",
+      "notes": "Added Vercel/pnpm configuration, security and cache headers, publication validation, deterministic release verifier, metadata schema, sitemap/robots, environment-aware canonical origin, asset allowlisting/symlink exclusion, dependency override with zero known audit vulnerabilities, and comprehensive README. Final pnpm verify passed. The live source changed during implementation and is now handled automatically: 13 records discovered, 11 ready, 2 incomplete, 11 sanitized transcripts, 1 comparison."
     },
     {
       "id": "REV-1",
       "title": "Final senior review",
       "role": "review",
-      "status": "pending",
+      "status": "in-progress",
       "stage": "build",
       "workflow": "vibe-build",
       "preferredAgent": "reviewer",
@@ -264,7 +265,8 @@
       "dependencies": [
         "BLD-3"
       ],
-      "conversationId": "reviewer-REV-1"
+      "conversationId": "reviewer-REV-1",
+      "notes": "Starting final non-UI architecture/security/privacy/regression review. UI review was already performed by oauth-router/gpt-5.6-sol."
     }
   ]
 }

@@ -29,6 +29,9 @@ export function Footer() {
       <div>
         <p className="eyebrow">About the collection</p>
         <p className="footer-note">An evolving record of how three models interpret the same creative frontier—preserved as runnable artifacts and process traces.</p>
+        <Link className="built-with-sol-badge" href="/built-with-sol" target="_top">
+          <span aria-hidden="true" /> Built with Sol <i>·</i> View build record
+        </Link>
       </div>
       <div className="footer-coordinates">
         <span>STATIC ARCHIVE</span><span>MMXXVI—07</span><span>SOL / TERRA / LUNA</span>

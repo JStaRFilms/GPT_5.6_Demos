@@ -17,6 +17,7 @@ import type {
   ModelId,
   ProjectStatus,
   SessionMetrics,
+  ShowcaseBuildRecord,
   ShowcaseCatalogue,
   ShowcaseComparison,
   ShowcaseProject
@@ -165,7 +166,7 @@ function buildProject(model: ModelId, directory: string): ShowcaseProject {
 
 function buildComparisons(projects: ShowcaseProject[]): ShowcaseComparison[] {
   const groups = new Map<string, ShowcaseProject[]>();
-  for (const project of projects.filter((candidate) => candidate.status === "ready")) {
+  for (const project of projects.filter((candidate) => Boolean(candidate.demoPath))) {
     groups.set(project.promptGroup, [...(groups.get(project.promptGroup) ?? []), project]);
   }
   return [...groups.entries()]
@@ -184,6 +185,46 @@ function buildComparisons(projects: ShowcaseProject[]): ShowcaseComparison[] {
     .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
 }
 
+interface BuildRecordConfig {
+  title?: string;
+  session: string;
+  model: ModelId;
+}
+
+function buildObservatoryRecord(): ShowcaseBuildRecord | null {
+  const configPath = join(root, "showcase.meta.json");
+  if (!existsSync(configPath)) return null;
+
+  const config = JSON.parse(readFileSync(configPath, "utf8")) as BuildRecordConfig;
+  if (typeof config.session !== "string" || basename(config.session) !== config.session || !/^pi-session-[A-Za-z0-9._-]+\.html$/.test(config.session)) {
+    throw new Error("showcase.meta.json must reference a root-level pi-session-*.html export.");
+  }
+  if (!MODEL_IDS.includes(config.model)) throw new Error("showcase.meta.json contains an unsupported model.");
+
+  const sessionPath = join(root, config.session);
+  if (!existsSync(sessionPath)) throw new Error(`Configured Observatory build session is missing: ${config.session}`);
+  const decoded = decodePiSessionHtml(readFileSync(sessionPath, "utf8"));
+  const transcriptPath = "/generated/transcripts/observatory-build.json";
+  const outputPath = join(root, "public", transcriptPath.replace(/^\//, ""));
+  ensureDirectory(dirname(outputPath));
+  writeFileSync(outputPath, `${JSON.stringify(decoded.transcript)}\n`, "utf8");
+
+  return {
+    schemaVersion: 1,
+    title: typeof config.title === "string" && config.title.trim() ? config.title.trim() : "Built with Sol",
+    model: config.model,
+    modelLabel: modelLabels[config.model],
+    modelId: decoded.transcript.session.modelId,
+    transcriptPath,
+    sessionId: decoded.transcript.session.id,
+    sessionTimestamp: decoded.transcript.session.timestamp,
+    messageCount: decoded.transcript.stats.messages,
+    toolCallCount: decoded.transcript.stats.toolCalls,
+    skills: decoded.transcript.session.skills,
+    metrics: decoded.transcript.metrics
+  };
+}
+
 function main(): void {
   rmSync(publicRoot, { recursive: true, force: true });
   rmSync(generatedSourceRoot, { recursive: true, force: true });
@@ -197,6 +238,7 @@ function main(): void {
       return (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) || a.title.localeCompare(b.title);
     });
 
+  const buildRecord = buildObservatoryRecord();
   const catalogue: ShowcaseCatalogue = {
     schemaVersion: 1,
     counts: {
@@ -205,7 +247,8 @@ function main(): void {
       byModel: Object.fromEntries(MODEL_IDS.map((model) => [model, projects.filter((project) => project.model === model).length])) as Record<ModelId, number>
     },
     projects,
-    comparisons: buildComparisons(projects)
+    comparisons: buildComparisons(projects),
+    buildRecord
   };
 
   const json = `${JSON.stringify(catalogue, null, 2)}\n`;

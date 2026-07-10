@@ -80,7 +80,14 @@ for (const comparison of catalogue.comparisons) {
   if (comparison.projectIds.length < 2) fail(`Comparison ${comparison.id} has fewer than two projects.`);
   for (const projectId of comparison.projectIds) {
     if (!ids.has(projectId)) fail(`Comparison ${comparison.id} references unknown project ${projectId}.`);
+    const project = catalogue.projects.find((candidate) => candidate.id === projectId);
+    if (!project?.demoPath) fail(`Comparison ${comparison.id} references a project without a runnable output: ${projectId}.`);
   }
+}
+
+if (catalogue.buildRecord) {
+  if (!catalogue.buildRecord.transcriptPath.startsWith("/generated/transcripts/")) fail("Build record transcript must use the generated transcript directory.");
+  if (!existsSync(join(root, "public", catalogue.buildRecord.transcriptPath.replace(/^\//, "")))) fail("Build record transcript is missing.");
 }
 
 const publicFiles = walk(publicGenerated);

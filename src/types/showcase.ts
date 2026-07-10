@@ -70,6 +70,21 @@ export interface ShowcaseComparison {
   models: ModelId[];
 }
 
+export interface ShowcaseBuildRecord {
+  schemaVersion: 1;
+  title: string;
+  model: ModelId;
+  modelLabel: string;
+  modelId: string;
+  transcriptPath: string;
+  sessionId: string | null;
+  sessionTimestamp: string | null;
+  messageCount: number;
+  toolCallCount: number;
+  skills: string[];
+  metrics: SessionMetrics;
+}
+
 export interface ShowcaseCounts {
   total: number;
   ready: number;
@@ -81,6 +96,7 @@ export interface ShowcaseCatalogue {
   counts: ShowcaseCounts;
   projects: ShowcaseProject[];
   comparisons: ShowcaseComparison[];
+  buildRecord: ShowcaseBuildRecord | null;
 }
 
 export type TranscriptRole = "user" | "assistant" | "tool";

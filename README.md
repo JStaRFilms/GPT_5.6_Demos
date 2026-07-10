@@ -96,9 +96,13 @@ Most metadata is inferred from the folder, HTML, and Pi session. Add `showcase.j
 }
 ```
 
-Comparison groups are inferred from the numeric project prefix: every ready Project 1 joins `project-01`, Project 2 joins `project-02`, and so on across Sol, Terra, and Luna. A comparison page appears once at least two models have a ready project in the same number.
+Comparison groups are inferred from the numeric project prefix: every runnable Project 1 joins `project-01`, Project 2 joins `project-02`, and so on across Sol, Terra, and Luna. A comparison page appears once at least two models have an output in the same number. Missing transcripts remain clearly marked instead of hiding an otherwise valid output comparison.
 
 Use `comparisonGroup` only when you want manual control. Give projects the same custom string to match them, or set it to `null` to exclude one from comparison. The older `promptGroup` field remains supported for compatibility. `docs/showcase.schema.json` provides editor validation and autocomplete.
+
+### Observatory build record
+
+`showcase.meta.json` explicitly selects the root Pi export used by the `/built-with-sol` meta exhibit. Generation runs that export through the same transcript sanitizer and publishes only `/generated/transcripts/observatory-build.json`; the raw HTML export is never copied into `public/`. Update the `session` filename in this config when intentionally replacing the build record.
 
 ## Pi transcript publication policy
 

@@ -34,7 +34,10 @@ export function ComparisonWorkspace({ projects }: { projects: ShowcaseProject[] 
     <div className={`comparison-grid ${visibleProjects.length === 1 ? "single" : ""}`}>{visibleProjects.map((project) => <article className="comparison-column" key={project.id} style={{ "--accent": models[project.model].accent } as React.CSSProperties}>
       <header><span>{models[project.model].code}</span><div><p>{project.modelLabel} · {project.modelId}</p><h3>{project.title}</h3></div><button type="button" onClick={() => setOpened((current) => current.filter((id) => id !== project.id))}>Close project</button></header>
       {project.demoPath ? <PreviewFrame src={project.demoPath} title={`${project.modelLabel} ${project.title}`} /> : <div className="unavailable">Output unavailable</div>}
-      <section className="comparison-conversation" aria-label={`${project.modelLabel} process conversation for ${project.title}`}><div className="mini-heading"><p className="eyebrow">Conversation</p><span>{project.messageCount} messages / {project.toolCallCount} processes</span></div>{project.transcriptPath ? <TranscriptViewer path={project.transcriptPath} title={project.title} /> : <div className="unavailable">Conversation unavailable</div>}</section>
+      <section className="comparison-conversation" aria-label={`${project.modelLabel} process conversation for ${project.title}`}>
+        <div className="mini-heading"><p className="eyebrow">Conversation</p><span>{project.transcriptPath ? `${project.messageCount} messages / ${project.toolCallCount} processes` : "Process record not archived"}</span></div>
+        {project.transcriptPath ? <TranscriptViewer path={project.transcriptPath} title={project.title} /> : <div className="comparison-record-unavailable"><span aria-hidden="true"/><p className="eyebrow">Output remains live</p><h4>Process record unavailable</h4><p>No session export was recovered for this experiment. Its runnable output remains available for direct comparison above.</p></div>}
+      </section>
     </article>)}</div>
     {!opened.length ? <button className="primary-button comparison-open-all" type="button" onClick={openInitial}><PlayIcon /> {compact ? "Open first project" : "Open all projects"}</button> : null}
   </section>;

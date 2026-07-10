@@ -35,7 +35,10 @@ export default function ComparisonsPage() {
                 {projects.map((project) => <div key={project.id} style={{ "--accent": models[project.model].accent } as React.CSSProperties}>
                   <span><i aria-hidden="true" />{project.modelLabel}</span>
                   <strong>{project.title}</strong>
-                  <small>{project.modelId}</small>
+                  <div className="comparison-record-meta">
+                    <small>{project.modelId}</small>
+                    {!project.transcriptPath ? <small className="process-record-missing">Live output · process record unavailable</small> : null}
+                  </div>
                 </div>)}
               </div>
               <footer><p>Shared numbered brief <span>/</span> distinct interpretations</p><Link href={`/compare/${comparison.id}`} aria-label={`Open ${comparison.title} comparative study`}>Open study <ArrowIcon /></Link></footer>

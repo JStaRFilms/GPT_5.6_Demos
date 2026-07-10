@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f2efe9" />
+  <meta name="description" content="The Quiet Archive — an interactive editorial study of memory, material and the marks we leave behind." />
+  <title>The Quiet Archive — Vol. 05</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400&family=Manrope:wght@300;400;500&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --paper: #f2efe9;
+      --paper-deep: #e8e2d8;
+      --ink: #252522;
+      --muted: #817d75;
+      --rust: #a1452e;
+      --line: rgba(37, 37, 34, .24);
+      --serif: "Playfair Display", Georgia, serif;
+      --sans: "Manrope", sans-serif;
+      --mono: "DM Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--paper); scroll-behavior: auto; }
+    body { margin: 0; color: var(--ink); background: var(--paper); font-family: var(--sans); overflow-x: hidden; }
+    a { color: inherit; }
+    button { color: inherit; }
+    ::selection { color: var(--paper); background: var(--rust); }
+
+    .grain {
+      position: fixed; inset: -50%; z-index: 20; pointer-events: none; opacity: .19;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.27'/%3E%3C/svg%3E");
+      animation: grain .22s steps(2) infinite;
+    }
+    @keyframes grain { 0%{transform:translate(0)} 25%{transform:translate(2%,-1%)} 50%{transform:translate(-1%,2%)} 75%{transform:translate(1%,1%)} }
+
+    #ink-canvas { position: fixed; inset: 0; z-index: 30; width: 100%; height: 100%; pointer-events: none; }
+    .cursor-dot { position: fixed; width: 7px; height: 7px; border-radius: 50%; background: var(--rust); z-index: 31; pointer-events: none; transform: translate(-50%,-50%); mix-blend-mode: multiply; }
+    @media (pointer:fine) { body, a, button { cursor: none; } }
+
+    .site-head {
+      position: fixed; inset: 0 0 auto; height: 82px; z-index: 15; display: grid;
+      grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 3.4vw;
+      border-bottom: 1px solid var(--line); background: linear-gradient(var(--paper) 35%, rgba(242,239,233,.88));
+    }
+    .wordmark { font: 500 clamp(13px, 1vw, 16px)/1 var(--serif); letter-spacing: .02em; }
+    .issue { font: 300 9px/1 var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--muted); }
+    .readout { justify-self: end; display: flex; gap: 1.4rem; font: 300 9px/1 var(--mono); letter-spacing: .08em; color: var(--muted); }
+    .live-dot { display: inline-block; width: 5px; height: 5px; margin-right: 6px; border-radius: 50%; background: var(--rust); animation: pulse 2s infinite; }
+    @keyframes pulse { 50% { opacity:.25; } }
+
+    .scroll-space { height: 600vh; }
+    .viewport { position: sticky; top: 0; height: 100vh; overflow: hidden; }
+    .track { height: 100%; display: flex; will-change: transform; }
+    .panel { flex: 0 0 100vw; height: 100vh; padding: 116px 3.4vw 76px; position: relative; overflow: hidden; }
+
+    .eyebrow { display: flex; align-items: center; gap: 12px; font: 300 9px/1 var(--mono); text-transform: uppercase; letter-spacing: .2em; color: var(--muted); }
+    .eyebrow::before { content:""; width: 32px; border-top: 1px solid currentColor; }
+    .chapter-no { position:absolute; top: 112px; right: 3.4vw; font: italic 500 clamp(44px,7vw,108px)/.8 var(--serif); color: transparent; -webkit-text-stroke: 1px rgba(37,37,34,.19); }
+
+    .hero { display:grid; grid-template-columns: minmax(0,1.45fr) minmax(290px,.55fr); gap: 6vw; align-items:end; }
+    .hero-copy { align-self:center; padding-top:5vh; }
+    .hero h1 { margin: 4vh 0 3vh; font: 500 clamp(74px, 10.5vw, 180px)/.76 var(--serif); letter-spacing:-.065em; }
+    .hero h1 em { display:block; margin-left:14vw; color:var(--rust); font-weight:500; }
+    .deck { max-width: 450px; margin-left: 7vw; font: 300 clamp(14px,1.05vw,18px)/1.65 var(--sans); }
+    .hero-aside { border-left:1px solid var(--line); padding: 28px 0 4vh 2.2vw; }
+    .hero-aside p { font: italic 500 clamp(20px,2vw,34px)/1.28 var(--serif); }
+    .scroll-cue { margin-top:4vh; display:flex; align-items:center; gap:14px; font:300 9px/1 var(--mono); text-transform:uppercase; letter-spacing:.16em; }
+    .scroll-cue i { display:block; width:54px; height:1px; background:var(--ink); position:relative; overflow:hidden; }
+    .scroll-cue i::after { content:""; position:absolute; inset:0; background:var(--rust); transform:translateX(-100%); animation:sweep 1.8s ease-in-out infinite; }
+    @keyframes sweep { 60%,100% { transform:translateX(100%); } }
+
+    .text-chapter { display:grid; grid-template-columns: 1fr 1.25fr .65fr; gap:5vw; align-items:center; }
+    .chapter-title { align-self:start; padding-top:9vh; }
+    .chapter-title h2 { margin:22px 0 0; max-width:620px; font:500 clamp(52px,7vw,112px)/.87 var(--serif); letter-spacing:-.045em; }
+    .chapter-title h2 em { color:var(--rust); }
+    .body-copy { max-width:640px; columns:2; column-gap:3vw; font:300 clamp(13px,.96vw,16px)/1.78 var(--sans); }
+    .body-copy p { margin:0 0 1.2em; }
+    .body-copy p:first-child::first-letter { float:left; margin:.04em .12em 0 0; font:500 5.2em/.72 var(--serif); color:var(--rust); }
+    .margin-note { align-self:end; margin-bottom:4vh; border-top:1px solid var(--ink); padding-top:14px; font:300 9px/1.55 var(--mono); color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+
+    .photo-panel { padding: 104px 2vw 58px; }
+    .photo-frame { position:relative; height:100%; overflow:hidden; background:#262622; }
+    .photo-frame img { width:100%; height:100%; object-fit:cover; filter:grayscale(1) sepia(.22) contrast(1.08); transform:scale(1.06); }
+    .photo-frame::after { content:""; position:absolute; inset:0; background:linear-gradient(90deg,rgba(37,30,20,.25),transparent 40%,rgba(20,20,18,.1)); mix-blend-mode:multiply; }
+    .photo-caption { position:absolute; z-index:2; inset:auto 2.2vw 2vw; color:#f4f0e8; display:grid; grid-template-columns:1fr auto; align-items:end; }
+    .photo-caption h2 { margin:0; max-width:900px; font:italic 500 clamp(38px,5.5vw,92px)/.92 var(--serif); letter-spacing:-.035em; text-shadow:0 2px 20px #0008; }
+    .photo-caption span { font:300 9px/1.5 var(--mono); letter-spacing:.12em; text-transform:uppercase; text-align:right; }
+    .vertical-label { position:absolute; z-index:2; top:2vw; right:2vw; color:white; writing-mode:vertical-rl; font:300 9px/1 var(--mono); letter-spacing:.16em; text-transform:uppercase; }
+
+    .quote-panel { display:grid; grid-template-columns:.5fr 2.1fr .7fr; gap:4vw; align-items:center; background:var(--paper-deep); }
+    .quote-mark { align-self:start; margin-top:16vh; font:500 clamp(100px,15vw,260px)/.7 var(--serif); color:var(--rust); opacity:.8; }
+    blockquote { margin:0; font:500 clamp(38px,5.2vw,86px)/1.03 var(--serif); letter-spacing:-.035em; }
+    blockquote em { color:var(--rust); }
+    .quote-meta { align-self:end; margin-bottom:6vh; font:300 9px/1.65 var(--mono); text-transform:uppercase; letter-spacing:.1em; }
+    .quote-meta::before { content:""; display:block; width:100%; border-top:1px solid; margin-bottom:14px; }
+
+    .closing { display:grid; grid-template-columns: 1.4fr .6fr; gap:7vw; align-items:center; }
+    .closing h2 { margin:2vh 0 5vh; font:500 clamp(64px,9vw,150px)/.82 var(--serif); letter-spacing:-.06em; }
+    .closing h2 em { color:var(--rust); }
+    .colophon { max-width:600px; display:grid; grid-template-columns:1fr 1fr; gap:3vw; border-top:1px solid; padding-top:18px; font:300 10px/1.6 var(--mono); text-transform:uppercase; color:var(--muted); }
+    .closing-art { height:58vh; border:1px solid var(--line); display:grid; place-items:center; position:relative; }
+    .closing-art svg { width:78%; height:78%; overflow:visible; }
+    .closing-art path { fill:none; stroke:var(--ink); stroke-width:.65; vector-effect:non-scaling-stroke; }
+    .closing-art::before,.closing-art::after { content:""; position:absolute; width:7px; height:7px; background:var(--rust); border-radius:50%; }
+    .closing-art::before { top:-4px; left:-4px; } .closing-art::after { right:-4px; bottom:-4px; }
+
+    .rail { position:fixed; z-index:16; left:3.4vw; right:3.4vw; bottom:25px; display:grid; grid-template-columns:auto 1fr auto; gap:20px; align-items:center; }
+    .rail-label,.rail-count { font:300 9px/1 var(--mono); letter-spacing:.12em; color:var(--muted); }
+    .rail-line { height:1px; background:var(--line); position:relative; }
+    .rail-progress { position:absolute; inset:0 auto 0 0; width:0; background:var(--rust); transform-origin:left; }
+    .dots { position:absolute; inset:0; display:flex; justify-content:space-between; transform:translateY(-3px); }
+    .dots button { width:7px; height:7px; padding:0; border:1px solid var(--ink); background:var(--paper); border-radius:50%; transition:.3s; }
+    .dots button.active { background:var(--rust); border-color:var(--rust); transform:scale(1.45); }
+
+    .loader { position:fixed; inset:0; z-index:100; background:var(--ink); color:var(--paper); display:grid; place-items:center; transition:transform 1s cubic-bezier(.76,0,.24,1); }
+    .loader.done { transform:translateY(-100%); }
+    .loader-inner { text-align:center; }
+    .loader-name { font:italic 500 clamp(38px,5vw,78px)/1 var(--serif); overflow:hidden; }
+    .loader-name span { display:block; animation:rise .8s .1s both; }
+    .loader-line { width:220px; height:1px; margin:25px auto; background:#ffffff30; overflow:hidden; }
+    .loader-line i { display:block; height:100%; background:var(--paper); animation:load 1.35s both; }
+    @keyframes rise { from{transform:translateY(110%)} } @keyframes load { from{width:0} to{width:100%} }
+
+    @media (max-width: 820px) {
+      .site-head { height:64px; padding:0 20px; grid-template-columns:1fr auto; } .issue{display:none}.readout span:first-child{display:none}
+      .panel { padding:88px 22px 62px; } .chapter-no{top:84px;right:22px}
+      .hero { grid-template-columns:1fr; align-items:center; } .hero-copy{padding-top:0}.hero h1{font-size:22vw;margin:5vh 0 4vh}.hero h1 em{margin-left:13vw}.deck{margin-left:0;width:75%}.hero-aside{display:none}
+      .text-chapter { grid-template-columns:1fr; align-content:center; gap:5vh; } .chapter-title{padding:0}.chapter-title h2{font-size:15vw;max-width:80%}.body-copy{columns:1;max-width:88%;font-size:13px}.body-copy p:nth-child(2){display:none}.margin-note{position:absolute;right:22px;bottom:64px;width:31%;margin:0}
+      .photo-panel{padding:76px 10px 52px}.photo-caption{inset:auto 18px 22px;grid-template-columns:1fr}.photo-caption h2{font-size:12vw}.photo-caption span{display:none}.vertical-label{top:20px;right:18px}
+      .quote-panel{grid-template-columns:.22fr 1fr;padding-left:8px}.quote-mark{margin-top:8vh}.quote-meta{position:absolute;right:22px;bottom:58px;width:40%;margin:0}blockquote{font-size:10.5vw}
+      .closing{grid-template-columns:1fr}.closing h2{font-size:18vw}.closing-art{display:none}.colophon{font-size:8px}
+      .rail{left:22px;right:22px;bottom:20px}.rail-label{display:none}
+    }
+    @media (pointer:coarse) { .cursor-dot,#ink-canvas { display:none; } }
+    @media (prefers-reduced-motion:reduce) { *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important}.loader{display:none}.track{transition:none!important} }
+  </style>
+</head>
+<body>
+  <div class="loader" aria-hidden="true"><div class="loader-inner"><div class="loader-name"><span>The Quiet Archive</span></div><div class="loader-line"><i></i></div><div class="issue">Indexing fragments · 05</div></div></div>
+  <div class="grain" aria-hidden="true"></div>
+  <canvas id="ink-canvas" aria-hidden="true"></canvas><div class="cursor-dot" aria-hidden="true"></div>
+
+  <header class="site-head">
+    <div class="wordmark">The Quiet Archive</div><div class="issue">Independent Journal · Vol. 05</div>
+    <div class="readout"><span id="coords">48.8566° N · 2.3522° E</span><span><i class="live-dot"></i><b id="clock">00:00:00</b> CET</span></div>
+  </header>
+
+  <main class="scroll-space" id="story">
+    <div class="viewport">
+      <div class="track" id="track">
+        <section class="panel hero" data-title="Prologue">
+          <div class="hero-copy">
+            <div class="eyebrow">A study in residue & remembrance</div>
+            <h1>The Quiet <em>Archive</em></h1>
+            <p class="deck">An inquiry into the objects that remember for us — and the intimate geography of marks, folds, dust and fading light.</p>
+            <div class="scroll-cue"><i></i> Scroll to enter</div>
+          </div>
+          <aside class="hero-aside"><div class="eyebrow">Editor's note</div><p>“What survives is rarely what we meant to preserve.”</p><div class="issue">Filed in Paris<br>Summer, MMXXVI</div></aside>
+        </section>
+
+        <section class="panel text-chapter" data-title="Memory">
+          <div class="chapter-title"><div class="eyebrow">Chapter one · Memory</div><h2>The weight of <em>small things</em></h2></div>
+          <div class="body-copy"><p>Every room is a private museum. A chipped cup becomes a calendar; a theatre stub, a doorway. We arrange these quiet witnesses around us until their stories become inseparable from our own.</p><p>Memory does not live in the object itself, but in the distance between hand and surface. The polished edge of a table keeps an account of every passing body. Linen retains the shape of sleep. Silver darkens faithfully in the air.</p><p>These are not monuments. They ask for no audience. Their power is precisely their scale: the humble evidence of having been here.</p></div>
+          <aside class="margin-note">Archive note 01<br><br>Object:<br>Handwritten letter<br><br>Material:<br>Cotton rag paper<br><br>Condition:<br>Folded / foxed</aside><div class="chapter-no">01</div>
+        </section>
+
+        <section class="panel photo-panel" data-title="Evidence">
+          <figure class="photo-frame">
+            <img src="https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=2400&q=88" alt="A hand writing in an old notebook on a wooden desk" />
+            <figcaption class="photo-caption"><h2>Evidence of a hand,<br>long after it has gone.</h2><span>Plate 12 / Private correspondence<br>Photographed in available light</span></figcaption>
+            <div class="vertical-label">Collection particulière · Circa 1948</div>
+          </figure>
+        </section>
+
+        <section class="panel quote-panel" data-title="Interlude">
+          <div class="quote-mark">“</div><blockquote>Perhaps an archive is simply a place where <em>time learns to touch itself.</em></blockquote>
+          <div class="quote-meta">Interlude No. 2<br><br>On dust, devotion<br>& domestic history</div><div class="chapter-no">02</div>
+        </section>
+
+        <section class="panel text-chapter" data-title="Patina">
+          <div class="chapter-title"><div class="eyebrow">Chapter three · Patina</div><h2>A beautiful <em>undoing</em></h2></div>
+          <div class="body-copy"><p>We call it damage when time becomes visible. Yet patina is nothing more than duration made legible: rain working on stone, oil warming timber, fingers burnishing brass.</p><p>The contemporary world is taught to resist such evidence. Surfaces arrive sealed, flawless, mute. But perfection has no biography. It offers the eye nowhere to rest and the imagination nothing to continue.</p><p>To cherish wear is to accept that beauty may be accumulative — that a thing can become more fully itself by being used, altered and eventually released.</p></div>
+          <aside class="margin-note">Field note 03<br><br>Location:<br>Rue Chapon, IIIe<br><br>Observation:<br>Charcoal over plaster<br><br>Light:<br>17:42 / North</aside><div class="chapter-no">03</div>
+        </section>
+
+        <section class="panel photo-panel" data-title="Surface">
+          <figure class="photo-frame">
+            <img src="https://images.unsplash.com/photo-1519710164239-da123dc03ef4?auto=format&fit=crop&w=2400&q=88" alt="Sunlit vintage interior with textured plaster walls" />
+            <figcaption class="photo-caption"><h2>Nothing is ever<br>merely a surface.</h2><span>Plate 29 / Rue Chapon<br>Negative restored by hand</span></figcaption>
+            <div class="vertical-label">A room remembering sunlight · 17:42</div>
+          </figure>
+        </section>
+
+        <section class="panel closing" data-title="Colophon">
+          <div><div class="eyebrow">End note · Continue looking</div><h2>Leave a <em>mark.</em></h2><div class="colophon"><div>The Quiet Archive is an independent digital journal concerned with material memory and the poetry of ordinary things.</div><div>Words & direction · Studio V<br>Photography · Open archive<br>Set in Playfair & Manrope<br>© MMXXVI</div></div></div>
+          <div class="closing-art" aria-hidden="true"><svg viewBox="0 0 300 440"><path d="M150 20 C70 55 230 85 146 123 C55 165 248 183 145 227 C40 272 254 301 142 346 C89 367 107 402 150 420"/><path d="M124 38 C215 77 51 108 170 149 C258 180 48 220 174 259 C250 283 66 331 178 377"/><path d="M82 88 C114 20 198 51 214 116 C230 184 57 173 76 250 C94 322 219 279 211 359"/></svg></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <nav class="rail" aria-label="Story chapters"><span class="rail-label" id="rail-title">Prologue</span><div class="rail-line"><div class="rail-progress" id="progress"></div><div class="dots" id="dots"></div></div><span class="rail-count"><b id="current">01</b> / 07</span></nav>
+
+  <script>
+    const track = document.querySelector('#track');
+    const story = document.querySelector('#story');
+    const panels = [...document.querySelectorAll('.panel')];
+    const progress = document.querySelector('#progress');
+    const current = document.querySelector('#current');
+    const railTitle = document.querySelector('#rail-title');
+    const dots = document.querySelector('#dots');
+    let target = 0, smooth = 0, lastPanel = -1;
+
+    panels.forEach((panel, i) => {
+      const dot = document.createElement('button'); dot.setAttribute('aria-label', `Go to ${panel.dataset.title}`);
+      dot.addEventListener('click', () => window.scrollTo({ top: (story.offsetHeight - innerHeight) * i / (panels.length - 1), behavior:'smooth' }));
+      dots.append(dot);
+    });
+    const dotEls = [...dots.children];
+
+    function updateScroll(){
+      const maxScroll = story.offsetHeight - innerHeight;
+      target = Math.max(0, Math.min(1, scrollY / maxScroll));
+      smooth += (target - smooth) * .075;
+      track.style.transform = `translate3d(${-smooth * (panels.length - 1) * innerWidth}px,0,0)`;
+      progress.style.width = `${smooth * 100}%`;
+      const active = Math.max(0, Math.min(panels.length - 1, Math.round(smooth * (panels.length - 1))));
+      if(active !== lastPanel){
+        current.textContent = String(active + 1).padStart(2,'0'); railTitle.textContent = panels[active].dataset.title;
+        dotEls.forEach((d,i) => d.classList.toggle('active', i === active)); lastPanel = active;
+      }
+      const frameProgress = smooth * (panels.length - 1) % 1;
+      document.querySelectorAll('.photo-frame img').forEach(img => img.style.transform = `scale(1.06) translateX(${(frameProgress-.5)*1.5}%)`);
+      requestAnimationFrame(updateScroll);
+    }
+    updateScroll();
+
+    function setStoryHeight(){ story.style.height = `${Math.max(500, panels.length * 90)}vh`; }
+    setStoryHeight(); addEventListener('resize', setStoryHeight);
+
+    const clock = document.querySelector('#clock');
+    setInterval(() => clock.textContent = new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZone:'Europe/Paris'}).format(new Date()), 1000);
+
+    const canvas = document.querySelector('#ink-canvas'), ctx = canvas.getContext('2d');
+    const cursor = document.querySelector('.cursor-dot');
+    let points = [], mouse = {x:innerWidth/2,y:innerHeight/2}, last = {...mouse}, down = false;
+    function sizeCanvas(){ const dpr=Math.min(devicePixelRatio,2); canvas.width=innerWidth*dpr;canvas.height=innerHeight*dpr;ctx.setTransform(dpr,0,0,dpr,0,0); }
+    sizeCanvas(); addEventListener('resize',sizeCanvas);
+    addEventListener('pointermove', e => {
+      mouse={x:e.clientX,y:e.clientY}; cursor.style.left=mouse.x+'px';cursor.style.top=mouse.y+'px';
+      const speed=Math.hypot(mouse.x-last.x,mouse.y-last.y); if(speed>1) points.push({x:mouse.x,y:mouse.y,life:1,w:Math.min(5,.45+speed*.05),curl:(Math.random()-.5)*speed*.08}); last={...mouse};
+    });
+    addEventListener('pointerdown',()=>{down=true; for(let i=0;i<18;i++)points.push({x:mouse.x+Math.cos(i)*3,y:mouse.y+Math.sin(i)*3,life:1,w:1+Math.random()*3,curl:(Math.random()-.5)*3});});
+    addEventListener('pointerup',()=>down=false);
+    function drawInk(){
+      ctx.clearRect(0,0,innerWidth,innerHeight); ctx.lineCap='round'; ctx.lineJoin='round';
+      for(let i=1;i<points.length;i++){
+        const a=points[i-1],b=points[i]; if(Math.hypot(b.x-a.x,b.y-a.y)>70)continue;
+        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo((a.x+b.x)/2+a.curl,(a.y+b.y)/2-a.curl,b.x,b.y);
+        ctx.strokeStyle=`rgba(37,37,34,${Math.min(a.life,b.life)*.27})`;ctx.lineWidth=(a.w+b.w)/2;ctx.stroke();
+        b.x+=Math.sin(i*.7)*b.curl*.018;b.y+=Math.cos(i*.5)*b.curl*.018;b.life-=down?.006:.012;
+      }
+      points=points.filter(p=>p.life>0).slice(-110);requestAnimationFrame(drawInk);
+    }
+    if(matchMedia('(pointer:fine)').matches) drawInk();
+    addEventListener('load',()=>setTimeout(()=>document.querySelector('.loader').classList.add('done'),1450));
+  </script>
+</body>
+</html>

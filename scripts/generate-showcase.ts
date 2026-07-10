@@ -10,12 +10,13 @@ import {
   normalizeFolderName,
   readOverrides,
   relativePosix,
-  slugify
+  resolveComparisonGroup
 } from "./showcase-core";
 import { MODEL_IDS } from "../src/types/showcase";
 import type {
   ModelId,
   ProjectStatus,
+  SessionMetrics,
   ShowcaseCatalogue,
   ShowcaseComparison,
   ShowcaseProject
@@ -98,6 +99,8 @@ function buildProject(model: ModelId, directory: string): ShowcaseProject {
   let firstPrompt: string | null = null;
   let messageCount = 0;
   let toolCallCount = 0;
+  let skills: string[] = [];
+  let metrics: SessionMetrics | null = null;
 
   if (!hasOutput) issues.push("Missing index.html output.");
   if (!hasTranscript) issues.push("Missing Pi session export.");
@@ -111,6 +114,8 @@ function buildProject(model: ModelId, directory: string): ShowcaseProject {
       firstPrompt = decoded.firstUserText;
       messageCount = decoded.transcript.stats.messages;
       toolCallCount = decoded.transcript.stats.toolCalls;
+      skills = decoded.transcript.session.skills;
+      metrics = decoded.transcript.metrics;
       transcriptPath = `/generated/transcripts/${model}/${slug}.json`;
       const outputPath = join(publicRoot, "transcripts", model, `${slug}.json`);
       ensureDirectory(dirname(outputPath));
@@ -140,7 +145,7 @@ function buildProject(model: ModelId, directory: string): ShowcaseProject {
     order,
     title,
     slug,
-    promptGroup: overrides.promptGroup || slugify(title),
+    promptGroup: resolveComparisonGroup(model, slug, order, overrides),
     sourceDirectory: relativePosix(root, directory),
     status,
     issues,
@@ -152,6 +157,8 @@ function buildProject(model: ModelId, directory: string): ShowcaseProject {
     sessionTimestamp,
     messageCount,
     toolCallCount,
+    skills,
+    metrics,
     featured: overrides.featured ?? status === "ready"
   };
 }
@@ -163,13 +170,18 @@ function buildComparisons(projects: ShowcaseProject[]): ShowcaseComparison[] {
   }
   return [...groups.entries()]
     .filter(([, members]) => new Set(members.map((member) => member.model)).size > 1)
-    .map(([id, members]) => ({
+    .map(([id, members]) => {
+      const sharedOrder = members.every((member) => member.order === members[0].order) ? members[0].order : null;
+      return {
       id,
-      title: members[0].title,
+      title: id.startsWith("project-") && sharedOrder !== null
+        ? `Project ${String(sharedOrder).padStart(2, "0")}`
+        : members[0].title,
       projectIds: members.map((member) => member.id),
       models: [...new Set(members.map((member) => member.model))]
-    }))
-    .sort((a, b) => a.title.localeCompare(b.title));
+      };
+    })
+    .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
 }
 
 function main(): void {

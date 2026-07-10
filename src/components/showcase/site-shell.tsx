@@ -17,7 +17,7 @@ export function Header() {
             </Link>
           ))}
         </div>
-        <Link className="compare-link" href="/compare/nitro-league">Compare <span aria-hidden="true">↗</span></Link>
+        <Link className="compare-link" href="/compare">Compare <span aria-hidden="true">↗</span></Link>
       </nav>
     </header>
   );

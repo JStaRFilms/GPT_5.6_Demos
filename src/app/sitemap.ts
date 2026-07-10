@@ -8,6 +8,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return [
     { url: absolute("/"), changeFrequency: "weekly", priority: 1 },
+    { url: absolute("/compare"), changeFrequency: "weekly", priority: 0.8 },
     ...(["sol", "terra", "luna"] as const).map((model) => ({
       url: absolute(`/models/${model}`),
       changeFrequency: "weekly" as const,

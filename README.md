@@ -90,13 +90,15 @@ Most metadata is inferred from the folder, HTML, and Pi session. Add `showcase.j
   "title": "Nitro League",
   "slug": "nitro-league",
   "order": 8,
-  "promptGroup": "nitro-league",
+  "comparisonGroup": "project-08",
   "tags": ["3D", "Game", "Three.js"],
   "featured": true
 }
 ```
 
-`promptGroup` connects equivalent experiments across models. A comparison page is generated when at least two ready projects from different models share the same group. `docs/showcase.schema.json` provides editor validation and autocomplete.
+Comparison groups are inferred from the numeric project prefix: every ready Project 1 joins `project-01`, Project 2 joins `project-02`, and so on across Sol, Terra, and Luna. A comparison page appears once at least two models have a ready project in the same number.
+
+Use `comparisonGroup` only when you want manual control. Give projects the same custom string to match them, or set it to `null` to exclude one from comparison. The older `promptGroup` field remains supported for compatibility. `docs/showcase.schema.json` provides editor validation and autocomplete.
 
 ## Pi transcript publication policy
 
@@ -109,10 +111,23 @@ The build pipeline decodes the export and publishes only:
 - Model/provider identity
 - Timestamps
 - Generic tool/process summaries
+- Deduplicated names of skills explicitly loaded or read
 
-It excludes hidden reasoning, system prompts, tool schemas, raw tool output, tool arguments, local paths, and secret-like fields or token patterns. `pnpm validate` scans generated transcripts for forbidden markers and fails the build if a raw Pi export reaches the public directory.
+It excludes skill contents and locations, hidden reasoning, system prompts, tool schemas, raw tool output, all other tool arguments, local paths, and secret-like fields or token patterns. `pnpm validate` scans generated transcripts for forbidden markers and fails the build if a raw Pi export reaches the public directory.
 
 **Human review is still recommended before publishing a new session.** A user or assistant message can contain project-specific information that an automated redactor cannot understand semantically.
+
+## Session usage metrics
+
+For every Pi export with provider accounting data, ingestion also records:
+
+- Input/context, generated output, reported reasoning, cache-read, cache-write, and total tokens
+- Input, output, cache, and total cost in USD
+- Count of model API calls carrying usage records
+- Exact elapsed session span from the first to last timestamp
+- An estimated active-work duration that caps each gap between recorded events at five minutes
+
+Input tokens represent the **entire context sent on each model call**, not only the human-authored prompt. Reported reasoning tokens are informational and may be a subset of output tokens; they must not be added to total tokens again. Elapsed time is exact for the recorded session span, while active time is explicitly approximate because Pi exports do not contain model latency or processing-duration fields.
 
 ## Demo isolation
 

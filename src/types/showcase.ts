@@ -3,6 +3,41 @@ export const MODEL_IDS = ["sol", "terra", "luna"] as const;
 export type ModelId = (typeof MODEL_IDS)[number];
 export type ProjectStatus = "ready" | "missing-output" | "missing-transcript" | "empty";
 
+export interface SessionTokenUsage {
+  input: number;
+  output: number;
+  reasoning: number;
+  cacheRead: number;
+  cacheWrite: number;
+  total: number;
+  reasoningReportedCalls: number;
+}
+
+export interface SessionCostUsage {
+  currency: "USD";
+  available: boolean;
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  total: number;
+}
+
+export interface SessionTiming {
+  startedAt: string | null;
+  endedAt: string | null;
+  elapsedMs: number;
+  activeEstimateMs: number;
+  activeGapCapMs: number;
+}
+
+export interface SessionMetrics {
+  apiCalls: number;
+  tokens: SessionTokenUsage;
+  cost: SessionCostUsage;
+  timing: SessionTiming;
+}
+
 export interface ShowcaseProject {
   id: string;
   model: ModelId;
@@ -23,6 +58,8 @@ export interface ShowcaseProject {
   sessionTimestamp: string | null;
   messageCount: number;
   toolCallCount: number;
+  skills: string[];
+  metrics: SessionMetrics | null;
   featured: boolean;
 }
 
@@ -76,6 +113,7 @@ export interface ShowcaseTranscript {
     timestamp: string | null;
     provider: string | null;
     modelId: string;
+    skills: string[];
   };
   stats: {
     messages: number;
@@ -83,6 +121,7 @@ export interface ShowcaseTranscript {
     assistantMessages: number;
     toolCalls: number;
   };
+  metrics: SessionMetrics;
   messages: TranscriptMessage[];
 }
 
@@ -91,6 +130,7 @@ export interface ShowcaseOverrides {
   slug?: string;
   order?: number;
   promptGroup?: string;
+  comparisonGroup?: string | null;
   tags?: string[];
   featured?: boolean;
 }

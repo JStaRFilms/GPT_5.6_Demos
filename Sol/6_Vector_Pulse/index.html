@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#050505" />
+  <meta name="description" content="Vector Pulse — a schema-driven motion graphics timeline engine for kinetic type and statistical stories." />
+  <title>Vector Pulse — Motion Timeline Engine</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #050505;
+      --panel: #0a0a0a;
+      --panel-2: #0e0e0e;
+      --line: #292929;
+      --soft: #858585;
+      --paper: #f3f3ef;
+      --red: #ff2b2b;
+      --ease: cubic-bezier(.16, 1, .3, 1);
+    }
+    * { box-sizing: border-box; }
+    html, body, #root { height: 100%; }
+    body { margin: 0; overflow: hidden; background: var(--ink); color: var(--paper); font-family: "Instrument Sans", sans-serif; }
+    button, textarea, input { font: inherit; }
+    button { color: inherit; }
+    ::selection { background: var(--red); color: white; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-thumb { background: #353535; }
+    .display { font-family: "Archivo Black", sans-serif; }
+    .mono { font-family: "DM Mono", monospace; }
+    .checker {
+      background-color: #111;
+      background-image: linear-gradient(45deg,#161616 25%,transparent 25%),linear-gradient(-45deg,#161616 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#161616 75%),linear-gradient(-45deg,transparent 75%,#161616 75%);
+      background-size: 18px 18px; background-position: 0 0,0 9px,9px -9px,-9px 0;
+    }
+    .stage-grid {
+      background-image: linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+      background-size: 7.5% 12.5%;
+    }
+    .grain::after {
+      content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .15; mix-blend-mode: screen;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitchTiles'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.14'/%3E%3C/svg%3E");
+    }
+    .hairline { border-color: var(--line); }
+    .red-glow { box-shadow: 0 0 20px rgba(255,43,43,.22); }
+    .range { appearance: none; width: 100%; height: 2px; background: #2a2a2a; outline: none; cursor: ew-resize; }
+    .range::-webkit-slider-thumb { appearance: none; width: 11px; height: 18px; border: 2px solid var(--ink); background: var(--red); box-shadow: 0 0 0 1px var(--red); cursor: ew-resize; }
+    .range::-moz-range-thumb { width: 9px; height: 16px; border: 2px solid var(--ink); border-radius: 0; background: var(--red); cursor: ew-resize; }
+    .scene-row { transition: background .25s ease, color .25s ease, border-color .25s ease; }
+    .scene-row:hover { background: #111; }
+    .scene-row.active { background: #f0f0eb; color: #090909; border-color: #f0f0eb; }
+    .timeline-block { transition: filter .2s ease; }
+    .timeline-block:hover { filter: brightness(1.45); }
+    .pulse-dot { animation: pulse 1.8s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity: .25; transform: scale(.65); } }
+    @media (max-width: 900px) {
+      .app-grid { grid-template-columns: 76px minmax(0,1fr) !important; }
+      .side-copy, .inspector { display: none !important; }
+      .stage-wrap { padding: 18px !important; }
+      .scene-row { padding: 10px !important; justify-content: center; }
+      .scene-row .scene-no { font-size: 14px; }
+    }
+    @media (max-width: 600px) {
+      .app-grid { grid-template-columns: 1fr !important; }
+      .sidebar { display: none !important; }
+      .top-meta { display: none !important; }
+      .stage-wrap { padding: 10px !important; }
+      .timeline-labels { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useEffect, useMemo, useRef, useState } = React;
+
+    const DEFAULT_SCHEMA = {
+      meta: { title: "Signals of Change", fps: 60, duration: 18, ratio: "16:9", accent: "#ff2b2b" },
+      slides: [
+        {
+          id: "mission", label: "Core Mission", range: [0, 6], index: "01",
+          nodes: [
+            { type: "label", text: "OUR CORE MISSION / 2026", x: 6, y: 8, at: 0, duration: .5 },
+            { type: "kinetic", words: ["TURN", "RAW", "DATA", "INTO", "CLEAR", "MOMENTUM."], x: 6, y: 21, at: .35, stagger: .28, duration: .85 },
+            { type: "marker", x: 90, y: 14, text: "N 40°42'", at: .15, duration: .8 },
+            { type: "footer", text: "MAKE THE SIGNAL IMPOSSIBLE TO IGNORE", x: 6, y: 90, at: 2.2, duration: .8 }
+          ]
+        },
+        {
+          id: "signal", label: "Signal Velocity", range: [6, 12], index: "02",
+          nodes: [
+            { type: "label", text: "PERFORMANCE / SIGNAL VELOCITY", x: 6, y: 8, at: 0, duration: .5 },
+            { type: "headline", text: "THE CURVE IS\nTHE STORY.", x: 6, y: 18, at: .2, duration: .75 },
+            { type: "graph", x: 7, y: 50, width: 86, height: 34, at: .8, duration: 2, values: [11,18,16,31,28,43,55,51,69,83,91], labels: ["JAN","MAR","MAY","JUL","SEP","NOV"] },
+            { type: "marker", x: 90, y: 14, text: "+84.7%", at: 1.9, duration: .6 }
+          ]
+        },
+        {
+          id: "growth", label: "Growth Sequence", range: [12, 18], index: "03",
+          nodes: [
+            { type: "label", text: "COMPOUND GROWTH / FIVE CYCLES", x: 6, y: 8, at: 0, duration: .5 },
+            { type: "headline", text: "SMALL SHIFTS.\nMASSIVE SCALE.", x: 6, y: 18, at: .2, duration: .75 },
+            { type: "growth", x: 7, y: 58, at: .7, stagger: .35, duration: .9, values: [12,28,47,73,96], labels: ["Q1","Q2","Q3","Q4","Q5"] },
+            { type: "footer", text: "COMPOUNDED IMPACT / +700%", x: 65, y: 91, at: 2.8, duration: .8 }
+          ]
+        }
+      ]
+    };
+
+    const clamp = (n, min = 0, max = 1) => Math.min(max, Math.max(min, n));
+    const rawProgress = (time, at, duration) => clamp((time - at) / duration);
+
+    // Newton-solved cubic-bezier(.16, 1, .3, 1) for deterministic, seek-safe motion.
+    function velocityEase(t) {
+      const x1=.16, y1=1, x2=.3, y2=1;
+      let u=t;
+      for(let i=0;i<5;i++) {
+        const x=3*(1-u)*(1-u)*u*x1+3*(1-u)*u*u*x2+u*u*u;
+        const dx=3*(1-u)*(1-u)*x1+6*(1-u)*u*(x2-x1)+3*u*u*(1-x2);
+        if(Math.abs(dx)>.0001) u-= (x-t)/dx;
+      }
+      u=clamp(u);
+      return 3*(1-u)*(1-u)*u*y1+3*(1-u)*u*u*y2+u*u*u;
+    }
+    const progress = (time, at=0, duration=1) => velocityEase(rawProgress(time, at, duration));
+    const pad = n => String(n).padStart(2, "0");
+    const timecode = seconds => `${pad(Math.floor(seconds/60))}:${pad(Math.floor(seconds%60))}:${pad(Math.floor((seconds%1)*60))}`;
+
+    function Icon({ name, size=16 }) {
+      const paths = {
+        play: <polygon points="7,4 19,12 7,20" fill="currentColor" />,
+        pause: <><rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/></>,
+        reset: <><path d="M4 8V3m0 0h5M4 3l4 4"/><path d="M5.5 10a7 7 0 1 0 2-4"/></>,
+        code: <><path d="m8 9-4 3 4 3M16 9l4 3-4 3M14 5l-4 14"/></>,
+        download: <><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M4 19h16"/></>,
+        expand: <><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></>,
+        close: <><path d="M5 5l14 14M19 5 5 19"/></>,
+        check: <path d="m5 12 4 4L19 6"/>
+      };
+      return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true">{paths[name]}</svg>;
+    }
+
+    function Reveal({ p, children, style={}, axis="y" }) {
+      const shift=(1-p)*36;
+      return <div style={{ opacity:p, transform:`translate${axis.toUpperCase()}(${shift}px)`, ...style }}>{children}</div>;
+    }
+
+    function LabelNode({ node, time }) {
+      const p=progress(time,node.at,node.duration);
+      return <Reveal p={p} axis="x" style={{position:"absolute",left:`${node.x}%`,top:`${node.y}%`}}>
+        <div className="mono" style={{fontSize:"clamp(6px, .66vw, 12px)",letterSpacing:".16em",color:"#b0b0ac",whiteSpace:"nowrap"}}>{node.text}</div>
+      </Reveal>;
+    }
+
+    function HeadlineNode({ node, time }) {
+      const p=progress(time,node.at,node.duration);
+      return <div style={{position:"absolute",left:`${node.x}%`,top:`${node.y}%`,overflow:"hidden"}}>
+        <div className="display" style={{fontSize:"clamp(22px, 4.65vw, 80px)",lineHeight:.84,letterSpacing:"-.065em",whiteSpace:"pre-line",transform:`translateY(${(1-p)*110}%)`,opacity:p}}>{node.text}</div>
+      </div>;
+    }
+
+    function KineticNode({ node, time }) {
+      return <div className="display" style={{position:"absolute",left:`${node.x}%`,top:`${node.y}%`,width:"88%",fontSize:"clamp(25px, 5.1vw, 92px)",lineHeight:.79,letterSpacing:"-.07em"}}>
+        {node.words.map((word,i)=>{
+          const p=progress(time,node.at+i*node.stagger,node.duration);
+          const red=word==="DATA" || word==="MOMENTUM.";
+          return <div key={word+i} style={{height:".81em",overflow:"hidden"}}><span style={{display:"block",transform:`translateX(${(1-p)*(i%2?-110:110)}%)`,opacity:p,color:red?"var(--red)":"var(--paper)"}}>{word}</span></div>
+        })}
+      </div>;
+    }
+
+    function MarkerNode({ node, time }) {
+      const p=progress(time,node.at,node.duration);
+      return <div style={{position:"absolute",left:`${node.x}%`,top:`${node.y}%`,transform:`translate(-100%,0) scale(${.7+.3*p})`,opacity:p,textAlign:"right"}}>
+        <div className="mono" style={{fontSize:"clamp(7px,.82vw,14px)",fontWeight:500,color:"var(--red)",letterSpacing:".06em",whiteSpace:"nowrap"}}>{node.text}</div>
+        <div style={{height:1,width:48,margin:"7px 0 0 auto",background:"var(--red)",transform:`scaleX(${p})`,transformOrigin:"right"}} />
+      </div>;
+    }
+
+    function FooterNode({ node, time }) {
+      const p=progress(time,node.at,node.duration);
+      return <Reveal p={p} style={{position:"absolute",left:`${node.x}%`,top:`${node.y}%`}}>
+        <div className="mono" style={{fontSize:"clamp(6px,.62vw,11px)",letterSpacing:".14em",borderTop:"1px solid var(--red)",paddingTop:7,whiteSpace:"nowrap"}}>{node.text}</div>
+      </Reveal>;
+    }
+
+    function GraphNode({ node, time }) {
+      const p=progress(time,node.at,node.duration);
+      const pts=node.values.map((v,i)=>[i/(node.values.length-1)*100, 100-(v/100)*90]);
+      const d=pts.map((v,i)=>`${i?"L":"M"} ${v[0]} ${v[1]}`).join(" ");
+      return <div style={{position:"absolute",left:`${node.x}%`,top:`${node.y}%`,width:`${node.width}%`,height:`${node.height}%`}}>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%" style={{overflow:"visible"}}>
+          {[25,50,75,100].map(y=><line key={y} x1="0" y1={y} x2="100" y2={y} stroke="#292929" strokeWidth=".35" vectorEffect="non-scaling-stroke" />)}
+          {pts.map((pt,i)=><line key={i} x1={pt[0]} y1="0" x2={pt[0]} y2="100" stroke="#181818" strokeWidth=".25" vectorEffect="non-scaling-stroke" />)}
+          <path d={d} fill="none" stroke="var(--red)" strokeWidth="1.6" vectorEffect="non-scaling-stroke" pathLength="1" strokeDasharray="1" strokeDashoffset={1-p} />
+          {pts.map((pt,i)=>{const mp=progress(time,node.at+node.duration*(i/(pts.length-1))-.08,.32);return <g key={i} opacity={mp} transform={`translate(${pt[0]} ${pt[1]}) scale(${mp})`}><circle r="1.8" fill="var(--ink)" stroke="var(--red)" strokeWidth=".8" vectorEffect="non-scaling-stroke"/></g>})}
+        </svg>
+        <div className="mono" style={{display:"flex",justifyContent:"space-between",marginTop:7,fontSize:"clamp(5px,.55vw,10px)",color:"#727272",letterSpacing:".12em"}}>{node.labels.map(x=><span key={x}>{x}</span>)}</div>
+      </div>;
+    }
+
+    function GrowthNode({ node, time }) {
+      return <div style={{position:"absolute",left:`${node.x}%`,top:`${node.y}%`,width:"86%",display:"grid",gridTemplateColumns:"repeat(5,1fr)",alignItems:"end",gap:"2.8%"}}>
+        {node.values.map((value,i)=>{
+          const p=progress(time,node.at+i*node.stagger,node.duration);
+          const displayed=Math.round(value*p);
+          const size=34+i*12;
+          return <div key={value} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:9}}>
+            <div style={{width:`${size}%`,aspectRatio:1,borderRadius:"50%",border:`${i===4?2:1}px solid ${i===4?"var(--red)":"#d7d7d2"}`,background:i===4?`rgba(255,43,43,${.13*p})`:"transparent",transform:`scale(${.05+.95*p})`,opacity:p,display:"grid",placeItems:"center",boxShadow:i===4?`0 0 ${24*p}px rgba(255,43,43,.22)`:"none"}}>
+              <span className="display" style={{fontSize:"clamp(10px,1.65vw,28px)",letterSpacing:"-.05em"}}>{displayed}</span>
+            </div>
+            <div className="mono" style={{fontSize:"clamp(6px,.58vw,10px)",letterSpacing:".16em",color:i===4?"var(--red)":"#747474",opacity:p}}>{node.labels[i]}</div>
+          </div>
+        })}
+      </div>;
+    }
+
+    function SlideRenderer({ schema, time }) {
+      return <div className="relative w-full h-full overflow-hidden stage-grid grain" style={{background:"#050505"}}>
+        <div style={{position:"absolute",inset:"4.5% 3.2%",border:"1px solid #181818",pointerEvents:"none"}} />
+        {schema.slides.map(slide=>{
+          const local=time-slide.range[0];
+          const active=time>=slide.range[0] && (time<slide.range[1] || (time===schema.meta.duration && slide.range[1]===schema.meta.duration));
+          return <section key={slide.id} aria-hidden={!active} style={{position:"absolute",inset:0,opacity:active?1:0,pointerEvents:"none"}}>
+            <div className="mono" style={{position:"absolute",right:"3.2%",bottom:"4.6%",fontSize:"clamp(6px,.58vw,10px)",color:"#595959",letterSpacing:".12em"}}>VECTOR / {slide.index}</div>
+            {slide.nodes.map((node,i)=>{
+              const props={node,time:local,key:`${slide.id}-${i}`};
+              if(node.type==="label") return <LabelNode {...props}/>;
+              if(node.type==="kinetic") return <KineticNode {...props}/>;
+              if(node.type==="headline") return <HeadlineNode {...props}/>;
+              if(node.type==="graph") return <GraphNode {...props}/>;
+              if(node.type==="growth") return <GrowthNode {...props}/>;
+              if(node.type==="marker") return <MarkerNode {...props}/>;
+              if(node.type==="footer") return <FooterNode {...props}/>;
+              return null;
+            })}
+          </section>
+        })}
+      </div>;
+    }
+
+    function SceneList({ schema, activeIndex, onSelect }) {
+      return <div className="pt-2">
+        <div className="side-copy mono px-4 pb-3 text-[8px] tracking-[.18em] text-neutral-600">COMPOSITIONS / {pad(schema.slides.length)}</div>
+        {schema.slides.map((slide,i)=><button key={slide.id} onClick={()=>onSelect(slide.range[0]+.001)} className={`scene-row w-full border-y border-transparent px-4 py-3.5 flex items-center gap-3 text-left ${i===activeIndex?"active":""}`}>
+          <span className="scene-no mono text-[10px] font-medium">{slide.index}</span>
+          <span className="side-copy min-w-0 flex-1"><span className="block text-[11px] font-medium truncate">{slide.label}</span><span className={`mono block text-[7px] mt-1 tracking-wider ${i===activeIndex?"text-neutral-500":"text-neutral-600"}`}>{timecode(slide.range[0])} — {timecode(slide.range[1])}</span></span>
+          {i===activeIndex&&<span className="side-copy w-1.5 h-1.5 rounded-full bg-red-500"/>}
+        </button>)}
+      </div>;
+    }
+
+    function JsonEditor({ text, setText, onApply, error, onClose }) {
+      return <aside className="inspector border-l hairline bg-[#080808] flex flex-col min-w-0">
+        <div className="h-12 border-b hairline px-4 flex items-center justify-between">
+          <span className="mono text-[9px] tracking-[.16em]">TIMELINE.JSON</span>
+          <button onClick={onClose} className="text-neutral-500 hover:text-white" aria-label="Close editor"><Icon name="close" size={15}/></button>
+        </div>
+        <div className="px-4 py-3 border-b hairline flex items-center justify-between">
+          <span className="mono text-[8px] text-neutral-500">LIVE SCHEMA</span>
+          <span className={`mono text-[8px] flex items-center gap-1.5 ${error?"text-red-500":"text-emerald-400"}`}><Icon name={error?"close":"check"} size={10}/>{error?"INVALID":"VALID"}</span>
+        </div>
+        <textarea value={text} onChange={e=>setText(e.target.value)} spellCheck="false" className="mono flex-1 min-h-0 resize-none bg-transparent text-[9px] leading-[1.65] text-neutral-400 p-4 outline-none focus:text-neutral-200" aria-label="Animation timeline JSON" />
+        <div className="p-3 border-t hairline">
+          {error&&<p className="mono text-[8px] text-red-500 mb-2 leading-relaxed">{error}</p>}
+          <button onClick={onApply} className="w-full h-9 bg-[#efefea] hover:bg-white text-black mono text-[8px] tracking-[.18em] transition-colors">APPLY SCHEMA</button>
+        </div>
+      </aside>;
+    }
+
+    function Timeline({ schema, time, setTime, playing, setPlaying }) {
+      const duration=schema.meta.duration;
+      return <div className="h-[132px] border-t hairline bg-[#080808] grid grid-cols-[158px_minmax(0,1fr)]">
+        <div className="timeline-labels border-r hairline px-4 py-3">
+          <div className="mono text-[8px] text-neutral-600 tracking-[.16em] mb-4">MASTER TRACK</div>
+          <div className="flex gap-1.5">
+            <button onClick={()=>setTime(0)} className="w-8 h-8 border hairline grid place-items-center hover:bg-white hover:text-black transition-colors" aria-label="Restart"><Icon name="reset" size={13}/></button>
+            <button onClick={()=>setPlaying(!playing)} className="w-8 h-8 bg-red-500 text-white grid place-items-center hover:bg-red-400 transition-colors" aria-label={playing?"Pause":"Play"}><Icon name={playing?"pause":"play"} size={13}/></button>
+          </div>
+        </div>
+        <div className="min-w-0 px-4 pt-3">
+          <div className="relative h-5 mono text-[7px] text-neutral-600">
+            {[0,3,6,9,12,15,18].filter(x=>x<=duration).map(x=><span key={x} style={{position:"absolute",left:`${x/duration*100}%`,transform:x===0?"none":x===duration?"translateX(-100%)":"translateX(-50%)"}}>{timecode(x)}</span>)}
+          </div>
+          <div className="relative h-8 flex gap-[2px] mb-3">
+            {schema.slides.map((slide,i)=><button key={slide.id} onClick={()=>setTime(slide.range[0]+.001)} className="timeline-block h-full border-t border-red-500 bg-[#151515] relative text-left px-2 overflow-hidden" style={{width:`${(slide.range[1]-slide.range[0])/duration*100}%`}}><span className="mono text-[7px] text-neutral-500 whitespace-nowrap">{slide.index} {slide.label.toUpperCase()}</span></button>)}
+            <div className="absolute top-0 bottom-[-34px] w-px bg-red-500 pointer-events-none red-glow" style={{left:`${time/duration*100}%`}}><div className="absolute -top-1 -left-[3px] w-[7px] h-[7px] bg-red-500"/></div>
+          </div>
+          <input className="range block" type="range" min="0" max={duration} step="0.001" value={time} onChange={e=>setTime(Number(e.target.value))} aria-label="Timeline playhead" />
+          <div className="flex justify-between mt-3 mono text-[8px]"><span className="text-red-500">{timecode(time)}</span><span className="text-neutral-600">{schema.meta.fps} FPS · {duration.toFixed(1)} SEC</span></div>
+        </div>
+      </div>;
+    }
+
+    function App() {
+      const [schema,setSchema]=useState(DEFAULT_SCHEMA);
+      const [schemaText,setSchemaText]=useState(JSON.stringify(DEFAULT_SCHEMA,null,2));
+      const [schemaError,setSchemaError]=useState("");
+      const [time,setTimeState]=useState(.001);
+      const [playing,setPlaying]=useState(true);
+      const [editorOpen,setEditorOpen]=useState(true);
+      const [fullscreen,setFullscreen]=useState(false);
+      const frame=useRef(null), last=useRef(performance.now());
+      const duration=schema.meta.duration;
+      const foundIndex=schema.slides.findIndex((s,i)=>time>=s.range[0]&&(time<s.range[1]||(i===schema.slides.length-1&&time===duration)));
+      const activeIndex=Math.max(0,foundIndex);
+      const activeSlide=schema.slides[activeIndex] || schema.slides[0];
+
+      const setTime=v=>setTimeState(clamp(v,0,duration));
+      useEffect(()=>{
+        const tick=now=>{
+          const delta=(now-last.current)/1000; last.current=now;
+          if(playing) setTimeState(t=>{
+            const next=t+delta;
+            if(next>=duration){ setPlaying(false); return duration; }
+            return next;
+          });
+          frame.current=requestAnimationFrame(tick);
+        };
+        frame.current=requestAnimationFrame(tick);
+        return()=>cancelAnimationFrame(frame.current);
+      },[playing,duration]);
+
+      useEffect(()=>{
+        const key=e=>{
+          if(e.code==="Space"&&e.target.tagName!=="TEXTAREA"){e.preventDefault();setPlaying(p=>!p)}
+          if(e.code==="ArrowRight"&&e.target.tagName!=="TEXTAREA") setTimeState(t=>clamp(t+1/schema.meta.fps,0,duration));
+          if(e.code==="ArrowLeft"&&e.target.tagName!=="TEXTAREA") setTimeState(t=>clamp(t-1/schema.meta.fps,0,duration));
+        };
+        addEventListener("keydown",key); return()=>removeEventListener("keydown",key);
+      },[duration,schema.meta.fps]);
+
+      const applySchema=()=>{
+        try {
+          const parsed=JSON.parse(schemaText);
+          if(!parsed.meta||!Array.isArray(parsed.slides)||!parsed.slides.length) throw new Error("Schema requires meta and at least one slide.");
+          if(!parsed.meta.duration||!parsed.slides.every(s=>Array.isArray(s.range)&&Array.isArray(s.nodes))) throw new Error("Each slide requires range[] and nodes[].");
+          setSchema(parsed); setTimeState(0.001); setPlaying(false); setSchemaError("");
+        } catch(err) { setSchemaError(err.message); }
+      };
+      const download=()=>{
+        const blob=new Blob([JSON.stringify(schema,null,2)],{type:"application/json"});
+        const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="vector-pulse-timeline.json"; a.click(); URL.revokeObjectURL(a.href);
+      };
+
+      return <main className="h-full flex flex-col bg-[#050505]">
+        <header className="h-12 shrink-0 border-b hairline flex items-center justify-between px-4 bg-[#080808]">
+          <div className="flex items-center gap-3">
+            <div className="w-5 h-5 bg-red-500 grid place-items-center"><span className="display text-[8px]">V</span></div>
+            <div><span className="display text-[11px] tracking-[-.03em]">VECTOR PULSE</span><span className="mono text-[7px] ml-2 text-neutral-600">06</span></div>
+          </div>
+          <div className="top-meta flex items-center gap-5 mono text-[8px] text-neutral-500 tracking-[.12em]">
+            <span className="flex items-center gap-2"><i className="pulse-dot w-1.5 h-1.5 bg-red-500 rounded-full"/>ENGINE LIVE</span>
+            <span>{schema.meta.ratio}</span><span>{schema.meta.fps} FPS</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={()=>setEditorOpen(!editorOpen)} className={`h-7 px-2.5 border hairline flex items-center gap-2 mono text-[8px] hover:bg-white hover:text-black transition-colors ${editorOpen?"bg-[#1a1a1a]":""}`}><Icon name="code" size={12}/><span className="hidden sm:inline">SCHEMA</span></button>
+            <button onClick={download} className="h-7 px-2.5 border hairline flex items-center gap-2 mono text-[8px] hover:bg-white hover:text-black transition-colors"><Icon name="download" size={12}/><span className="hidden sm:inline">JSON</span></button>
+          </div>
+        </header>
+
+        <div className={`app-grid flex-1 min-h-0 grid ${editorOpen?"grid-cols-[158px_minmax(0,1fr)_290px]":"grid-cols-[158px_minmax(0,1fr)]"}`}>
+          <aside className="sidebar border-r hairline bg-[#080808] flex flex-col">
+            <SceneList schema={schema} activeIndex={activeIndex} onSelect={v=>{setTime(v);setPlaying(false)}}/>
+            <div className="side-copy mt-auto p-4 border-t hairline mono text-[7px] leading-[1.8] text-neutral-600"><span className="text-neutral-400">SPACE</span> PLAY / PAUSE<br/><span className="text-neutral-400">← →</span> FRAME STEP</div>
+          </aside>
+
+          <section className="min-w-0 min-h-0 flex flex-col checker">
+            <div className="stage-wrap flex-1 min-h-0 p-8 flex items-center justify-center relative">
+              <div className="absolute top-3 left-4 mono text-[8px] text-neutral-600 tracking-[.12em]">PREVIEW / {activeSlide?.label.toUpperCase()}</div>
+              <button onClick={()=>setFullscreen(true)} className="absolute z-10 top-3 right-4 text-neutral-600 hover:text-white" aria-label="Fullscreen preview"><Icon name="expand" size={14}/></button>
+              <div className="w-full max-w-[1120px] aspect-video shadow-[0_25px_80px_rgba(0,0,0,.55)]"><SlideRenderer schema={schema} time={time}/></div>
+            </div>
+            <Timeline schema={schema} time={time} setTime={v=>{setTime(v);setPlaying(false)}} playing={playing} setPlaying={setPlaying}/>
+          </section>
+
+          {editorOpen&&<JsonEditor text={schemaText} setText={setSchemaText} onApply={applySchema} error={schemaError} onClose={()=>setEditorOpen(false)}/>} 
+        </div>
+
+        {fullscreen&&<div className="fixed inset-0 z-50 bg-black flex items-center justify-center p-3 sm:p-8">
+          <button onClick={()=>setFullscreen(false)} className="absolute z-10 top-5 right-5 w-9 h-9 border border-neutral-700 bg-black grid place-items-center hover:bg-white hover:text-black" aria-label="Close fullscreen"><Icon name="close" size={16}/></button>
+          <div className="w-full max-w-[1500px] aspect-video"><SlideRenderer schema={schema} time={time}/></div>
+        </div>}
+      </main>;
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

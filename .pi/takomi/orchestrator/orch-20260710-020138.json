@@ -1,8 +1,8 @@
 {
   "sessionId": "orch-20260710-020138",
   "title": "Sol Terra Luna Model Showcase",
-  "createdAt": "2026-07-10T01:27:11.046Z",
-  "updatedAt": "2026-07-10T01:27:11.046Z",
+  "createdAt": "2026-07-10T02:01:03.766Z",
+  "updatedAt": "2026-07-10T02:01:03.766Z",
   "mode": "hybrid",
   "lifecycle": {
     "genesis": {
@@ -120,7 +120,7 @@
       "id": "BLD-2",
       "title": "Showcase experience",
       "role": "design",
-      "status": "in-progress",
+      "status": "completed",
       "stage": "build",
       "workflow": "vibe-build",
       "preferredAgent": "coder",
@@ -130,19 +130,19 @@
       "checklist": [
         {
           "text": "Build gallery",
-          "done": false
+          "done": true
         },
         {
           "text": "Build detail experience",
-          "done": false
+          "done": true
         },
         {
           "text": "Build transcript viewer",
-          "done": false
+          "done": true
         },
         {
           "text": "Build comparison",
-          "done": false
+          "done": true
         }
       ],
       "objective": "Build the gallery, project viewer, transcript interface, and comparison experience.",
@@ -170,7 +170,7 @@
         "BLD-1"
       ],
       "conversationId": "coder-BLD-2",
-      "notes": "UI implementation delegated exclusively to oauth-router/gpt-5.6-sol per user routing instruction."
+      "notes": "Implemented and visually reviewed via oauth-router/gpt-5.6-sol. Added distinctive responsive gallery, model/project/comparison routes, opt-in sandboxed previews with unload and timeout recovery, lazy sanitized transcript viewer, accessible mobile tabs, static SEO, and branded route states. Sol UI review blocker and important findings were resolved."
     },
     {
       "id": "BLD-3",

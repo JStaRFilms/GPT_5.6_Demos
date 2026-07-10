@@ -38,5 +38,5 @@ export function Footer() {
 }
 
 export function SiteShell({ children }: { children: ReactNode }) {
-  return <div className="site-frame"><Header />{children}<Footer /></div>;
+  return <div className="site-frame"><Header />{children}</div>;
 }

@@ -10,7 +10,8 @@ import {
   normalizeFolderName,
   readOverrides,
   relativePosix,
-  resolveComparisonGroup
+  resolveComparisonGroup,
+  resolveStaticArtifactRoot
 } from "./showcase-core";
 import { MODEL_IDS } from "../src/types/showcase";
 import type {
@@ -33,36 +34,33 @@ function ensureDirectory(path: string): void {
   mkdirSync(path, { recursive: true });
 }
 
-function copyDemoAssets(source: string, destination: string): void {
+function copyDemoAssets(source: string, destination: string, privacyRoot = source, allowStaticText = false): void {
   ensureDirectory(destination);
   for (const entry of readdirSync(source, { withFileTypes: true })) {
     const from = join(source, entry.name);
     const to = join(destination, entry.name);
     if (entry.isDirectory()) {
-      if (isPublicDemoAsset(source, from)) cpSync(from, to, { recursive: true });
-      else {
-        const hasPublicFiles = collectPublicFiles(source, from);
-        if (hasPublicFiles.length) {
-          for (const file of hasPublicFiles) {
-            const relativeFile = relativePosix(source, file);
-            const target = join(destination, ...relativeFile.split("/"));
-            ensureDirectory(dirname(target));
-            cpSync(file, target);
-          }
+      const hasPublicFiles = collectPublicFiles(privacyRoot, from, allowStaticText);
+      if (hasPublicFiles.length) {
+        for (const file of hasPublicFiles) {
+          const relativeFile = relativePosix(source, file);
+          const target = join(destination, ...relativeFile.split("/"));
+          ensureDirectory(dirname(target));
+          cpSync(file, target);
         }
       }
-    } else if (isPublicDemoAsset(source, from)) {
+    } else if (isPublicDemoAsset(privacyRoot, from, allowStaticText)) {
       cpSync(from, to);
     }
   }
 }
 
-function collectPublicFiles(sourceRoot: string, directory: string): string[] {
+function collectPublicFiles(sourceRoot: string, directory: string, allowStaticText = false): string[] {
   const files: string[] = [];
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const candidate = join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...collectPublicFiles(sourceRoot, candidate));
-    else if (isPublicDemoAsset(sourceRoot, candidate)) files.push(candidate);
+    if (entry.isDirectory()) files.push(...collectPublicFiles(sourceRoot, candidate, allowStaticText));
+    else if (isPublicDemoAsset(sourceRoot, candidate, allowStaticText)) files.push(candidate);
   }
   return files;
 }
@@ -87,7 +85,11 @@ function buildProject(model: ModelId, directory: string): ShowcaseProject {
   const title = overrides.title || normalized.title;
   const slug = overrides.slug || normalized.slug;
   const order = overrides.order ?? normalized.order;
-  const indexPath = join(directory, "index.html");
+  const artifactType = overrides.artifact?.type ?? "single-html";
+  const artifactRoot = overrides.artifact
+    ? resolveStaticArtifactRoot(directory, overrides.artifact.directory)
+    : directory;
+  const indexPath = join(artifactRoot, "index.html");
   const hasOutput = existsSync(indexPath);
   const sessionFile = findSessionFile(directory);
   const hasTranscript = Boolean(sessionFile);
@@ -103,7 +105,9 @@ function buildProject(model: ModelId, directory: string): ShowcaseProject {
   let skills: string[] = [];
   let metrics: SessionMetrics | null = null;
 
-  if (!hasOutput) issues.push("Missing index.html output.");
+  if (!hasOutput) issues.push(overrides.artifact
+    ? `Missing static application artifact at ${overrides.artifact.directory}/index.html.`
+    : "Missing index.html output.");
   if (!hasTranscript) issues.push("Missing Pi session export.");
 
   if (sessionFile) {
@@ -132,7 +136,7 @@ function buildProject(model: ModelId, directory: string): ShowcaseProject {
   if (hasOutput) {
     html = readFileSync(indexPath, "utf8");
     demoPath = `/generated/demos/${model}/${slug}/index.html`;
-    copyDemoAssets(directory, join(publicRoot, "demos", model, slug));
+    copyDemoAssets(artifactRoot, join(publicRoot, "demos", model, slug), directory, artifactType === "static-app");
   }
 
   const inferredTags = inferTags(html, title, firstPrompt);
@@ -147,6 +151,7 @@ function buildProject(model: ModelId, directory: string): ShowcaseProject {
     title,
     slug,
     promptGroup: resolveComparisonGroup(model, slug, order, overrides),
+    artifactType,
     sourceDirectory: relativePosix(root, directory),
     status,
     issues,

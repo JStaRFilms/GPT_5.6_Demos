@@ -16,6 +16,7 @@ export function ProjectCard({ project, index = 0 }: ProjectCardProps) {
         <div className="specimen-art" data-seed={(project.order ?? index) % 4}>
           <span className="orbit orbit-a" /><span className="orbit orbit-b" />
           <strong>{String(project.order ?? index + 1).padStart(2, "0")}</strong>
+          {project.artifactType === "static-app" ? <span className="artifact-kind-card">Full web application</span> : null}
           <small>{identity.code} / {project.tags[0] ?? "Study"}</small>
         </div>
       </Link>

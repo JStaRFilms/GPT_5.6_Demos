@@ -1,5 +1,5 @@
-import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
-import { basename, extname, join, relative, sep } from "node:path";
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from "node:fs";
+import { basename, extname, isAbsolute, join, relative, sep } from "node:path";
 import type {
   ModelId,
   SessionMetrics,
@@ -378,10 +378,64 @@ export function findSessionFile(directory: string): string | null {
     .at(-1) ?? null;
 }
 
+export function extractHtmlAssetReferences(html: string): string[] {
+  const references: string[] = [];
+  const attribute = /\b(?:src|href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi;
+  for (const match of html.matchAll(attribute)) {
+    const value = match[1] ?? match[2] ?? match[3];
+    if (value) references.push(value);
+  }
+  return references;
+}
+
+export function normalizeArtifactDirectory(value: string): string {
+  const normalized = value.replaceAll("\\", "/").replace(/^\.\//, "");
+  const segments = normalized.split("/");
+  const forbidden = new Set(["docs", ".git", ".pi", "node_modules", "__pycache__"]);
+  if (
+    !normalized
+    || normalized.startsWith("/")
+    || segments.some((segment) => !segment || segment === "." || segment === ".." || segment.startsWith(".") || forbidden.has(segment.toLowerCase()))
+  ) {
+    throw new Error("Static application artifact directory must be a safe relative path outside private or dependency directories.");
+  }
+  return segments.join("/");
+}
+
+export function resolveStaticArtifactRoot(projectDirectory: string, artifactDirectory: string): string {
+  const projectRoot = realpathSync(projectDirectory);
+  const segments = normalizeArtifactDirectory(artifactDirectory).split("/");
+  let candidate = projectRoot;
+
+  for (const segment of segments) {
+    candidate = join(candidate, segment);
+    if (existsSync(candidate) && lstatSync(candidate).isSymbolicLink()) {
+      throw new Error("Static application artifact path cannot contain symbolic links.");
+    }
+  }
+
+  if (existsSync(candidate)) {
+    const resolved = realpathSync(candidate);
+    const rel = relative(projectRoot, resolved);
+    if (!rel || isAbsolute(rel) || rel === ".." || rel.startsWith(`..${sep}`)) {
+      throw new Error("Static application artifact must remain inside its project directory.");
+    }
+  }
+
+  return candidate;
+}
+
 export function readOverrides(directory: string): ShowcaseOverrides {
   const path = join(directory, "showcase.json");
   if (!existsSync(path)) return {};
   const parsed = JSON.parse(readFileSync(path, "utf8")) as ShowcaseOverrides;
+  let artifact: ShowcaseOverrides["artifact"];
+  if (parsed.artifact !== undefined) {
+    if (parsed.artifact?.type !== "static-app" || typeof parsed.artifact.directory !== "string") {
+      throw new Error(`${path} contains an invalid artifact declaration.`);
+    }
+    artifact = { type: "static-app", directory: normalizeArtifactDirectory(parsed.artifact.directory) };
+  }
   return {
     ...(typeof parsed.title === "string" ? { title: parsed.title } : {}),
     ...(typeof parsed.slug === "string" ? { slug: slugify(parsed.slug) } : {}),
@@ -390,6 +444,7 @@ export function readOverrides(directory: string): ShowcaseOverrides {
     ...(parsed.comparisonGroup === null || typeof parsed.comparisonGroup === "string"
       ? { comparisonGroup: parsed.comparisonGroup === null ? null : slugify(parsed.comparisonGroup) }
       : {}),
+    ...(artifact ? { artifact } : {}),
     ...(Array.isArray(parsed.tags) ? { tags: parsed.tags.filter((tag): tag is string => typeof tag === "string") } : {}),
     ...(typeof parsed.featured === "boolean" ? { featured: parsed.featured } : {})
   };
@@ -423,13 +478,14 @@ export function relativePosix(root: string, target: string): string {
   return relative(root, target).split(sep).join("/");
 }
 
-export function isPublicDemoAsset(sourceRoot: string, candidate: string): boolean {
+export function isPublicDemoAsset(sourceRoot: string, candidate: string, allowStaticText = false): boolean {
   const rel = relativePosix(sourceRoot, candidate);
   const segments = rel.split("/").map((segment) => segment.toLowerCase());
   const file = basename(candidate).toLowerCase();
   if (segments.some((segment) => ["docs", ".git", ".pi", "node_modules", "__pycache__"].includes(segment))) return false;
   if (file.startsWith(".") || /^pi-session-.*\.html$/i.test(file) || file === "showcase.json") return false;
-  if (!PUBLIC_ASSET_EXTENSIONS.has(extname(file))) return false;
+  const extension = extname(file);
+  if (extension === ".txt" ? !allowStaticText : !PUBLIC_ASSET_EXTENSIONS.has(extension)) return false;
   const stats = lstatSync(candidate);
   return !stats.isSymbolicLink() && stats.isFile();
 }

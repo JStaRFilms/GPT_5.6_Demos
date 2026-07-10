@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
-import test from "node:test";
 import { Buffer } from "node:buffer";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import test from "node:test";
 import {
   decodePiSessionHtml,
+  extractHtmlAssetReferences,
+  isPublicDemoAsset,
+  normalizeArtifactDirectory,
   normalizeFolderName,
   redactSensitive,
   resolveComparisonGroup,
+  resolveStaticArtifactRoot,
   redactText,
   slugify
 } from "../scripts/showcase-core";
@@ -25,6 +32,40 @@ test("normalizes numbered experiment folder conventions", () => {
   assert.equal(resolveComparisonGroup("sol", "voxel-frontier", 1, {}), "project-01");
   assert.equal(resolveComparisonGroup("terra", "voxel-sandbox", 1, { comparisonGroup: "voxel-study" }), "voxel-study");
   assert.equal(resolveComparisonGroup("sol", "voxel-frontier", 1, { comparisonGroup: null }), "sol-voxel-frontier");
+  assert.equal(normalizeArtifactDirectory("dist/showcase"), "dist/showcase");
+  assert.equal(normalizeArtifactDirectory("out\\nested"), "out/nested");
+  assert.throws(() => normalizeArtifactDirectory("../private"), /safe relative path/);
+  assert.throws(() => normalizeArtifactDirectory("/absolute"), /safe relative path/);
+  assert.throws(() => normalizeArtifactDirectory("docs"), /private or dependency/);
+  assert.throws(() => normalizeArtifactDirectory(".private/export"), /private or dependency/);
+  assert.throws(() => normalizeArtifactDirectory("node_modules/export"), /private or dependency/);
+});
+
+test("extracts quoted, spaced, and unquoted static HTML asset references", () => {
+  const html = `<script src = "/outside.js"></script><link href='/inside.css'><img src=/plain.png><a href = #section>Jump</a>`;
+  assert.deepEqual(extractHtmlAssetReferences(html), ["/outside.js", "/inside.css", "/plain.png", "#section"]);
+});
+
+test("keeps static application artifacts contained by project privacy boundaries", () => {
+  const root = mkdtempSync(join(tmpdir(), "showcase-artifact-"));
+  const project = join(root, "project");
+  const outside = join(root, "outside");
+  try {
+    mkdirSync(join(project, "out"), { recursive: true });
+    mkdirSync(join(project, "docs"), { recursive: true });
+    mkdirSync(outside, { recursive: true });
+    writeFileSync(join(project, "out", "index.html"), "<!doctype html>");
+    writeFileSync(join(project, "out", "index.txt"), "static route payload");
+    writeFileSync(join(project, "docs", "index.html"), "private");
+    assert.equal(resolveStaticArtifactRoot(project, "out"), join(project, "out"));
+    assert.equal(isPublicDemoAsset(project, join(project, "docs", "index.html")), false);
+    assert.equal(isPublicDemoAsset(project, join(project, "out", "index.txt")), false);
+    assert.equal(isPublicDemoAsset(project, join(project, "out", "index.txt"), true), true);
+    symlinkSync(outside, join(project, "linked-output"), "junction");
+    assert.throws(() => resolveStaticArtifactRoot(project, "linked-output"), /symbolic links/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("redacts private paths and secret-like values recursively", () => {

@@ -1,9 +1,13 @@
 import type { NextConfig } from "next";
 
+const observatoryBasePath = (process.env.NEXT_PUBLIC_OBSERVATORY_BASE_PATH ?? "").replace(/\/$/, "");
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  outputFileTracingRoot: process.cwd(),
+  output: "export",
+  basePath: observatoryBasePath,
+  images: { unoptimized: true },
 };
 
 export default nextConfig;

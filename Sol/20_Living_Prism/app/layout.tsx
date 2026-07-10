@@ -16,10 +16,12 @@ const instrumentSerif = Instrument_Serif({
   display: "swap",
 });
 
+const observatoryBasePath = (process.env.NEXT_PUBLIC_OBSERVATORY_BASE_PATH ?? "").replace(/\/$/, "");
+
 export const metadata: Metadata = {
   title: "Living Prism — Version Two",
   description: "A living, interactive iridescent organism rendered in real time.",
-  icons: { icon: "/prism-mark.svg" },
+  icons: { icon: `${observatoryBasePath}/prism-mark.svg` },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -71,7 +71,7 @@ Sol/
     assets/                # optional project-local assets
 ```
 
-The only required output filename is `index.html`. A Pi export must match `pi-session-*.html`. Incomplete folders remain visible in the catalogue with a clear status instead of breaking the build.
+By default, the required output filename is `index.html`. A Pi export must match `pi-session-*.html`. Incomplete folders remain visible in the catalogue with a clear status instead of breaking the build.
 
 Then run:
 
@@ -99,6 +99,22 @@ Most metadata is inferred from the folder, HTML, and Pi session. Add `showcase.j
 Comparison groups are inferred from the numeric project prefix: every runnable Project 1 joins `project-01`, Project 2 joins `project-02`, and so on across Sol, Terra, and Luna. A comparison page appears once at least two models have an output in the same number. Missing transcripts remain clearly marked instead of hiding an otherwise valid output comparison.
 
 Use `comparisonGroup` only when you want manual control. Give projects the same custom string to match them, or set it to `null` to exclude one from comparison. The older `promptGroup` field remains supported for compatibility. `docs/showcase.schema.json` provides editor validation and autocomplete.
+
+### Full static applications
+
+A larger web application can publish a prebuilt static export without being flattened into a single HTML file:
+
+```json
+{
+  "$schema": "../../docs/showcase.schema.json",
+  "artifact": {
+    "type": "static-app",
+    "directory": "out"
+  }
+}
+```
+
+The declared directory must be a safe relative path and contain `index.html`. Its allowlisted web assets are copied into the isolated generated demo directory. The Observatory never installs dependencies or executes nested project build scripts automatically; build the application explicitly with `pnpm`, review the resulting artifact, and commit the declared export when it should ship on Vercel.
 
 ### Observatory build record
 

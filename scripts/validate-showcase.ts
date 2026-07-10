@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { extractHtmlAssetReferences } from "./showcase-core";
 import type { ShowcaseCatalogue, ShowcaseTranscript } from "../src/types/showcase";
 
 const root = join(fileURLToPath(new URL("..", import.meta.url)));
@@ -68,8 +69,18 @@ for (const project of catalogue.projects) {
   const route = `${project.model}/${project.slug}`;
   if (routes.has(route)) fail(`Duplicate project route: ${route}`);
   routes.add(route);
+  if (!(["single-html", "static-app"] as const).includes(project.artifactType)) fail(`Unsupported artifact type for ${project.id}.`);
   if (project.demoPath && !existsSync(join(root, "public", project.demoPath.replace(/^\//, "")))) {
     fail(`Missing generated demo for ${project.id}: ${project.demoPath}`);
+  }
+  if (project.artifactType === "static-app" && project.demoPath) {
+    const expectedBase = project.demoPath.replace(/\/index\.html$/, "");
+    const demoRoot = join(root, "public", expectedBase.replace(/^\//, ""));
+    for (const htmlPath of walk(demoRoot).filter((path) => path.toLowerCase().endsWith(".html"))) {
+      const rootReferences = extractHtmlAssetReferences(readFileSync(htmlPath, "utf8")).filter((reference) => reference.startsWith("/"));
+      const invalidReference = rootReferences.find((reference) => !reference.startsWith(`${expectedBase}/`));
+      if (invalidReference) fail(`Static application ${project.id} contains a root-relative reference outside its isolated base path: ${invalidReference}`);
+    }
   }
   if (project.transcriptPath && !existsSync(join(root, "public", project.transcriptPath.replace(/^\//, "")))) {
     fail(`Missing generated transcript for ${project.id}: ${project.transcriptPath}`);

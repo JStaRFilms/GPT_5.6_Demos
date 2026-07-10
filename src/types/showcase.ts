@@ -2,6 +2,12 @@ export const MODEL_IDS = ["sol", "terra", "luna"] as const;
 
 export type ModelId = (typeof MODEL_IDS)[number];
 export type ProjectStatus = "ready" | "missing-output" | "missing-transcript" | "empty";
+export type ShowcaseArtifactType = "single-html" | "static-app";
+
+export interface ShowcaseArtifactOverride {
+  type: "static-app";
+  directory: string;
+}
 
 export interface SessionTokenUsage {
   input: number;
@@ -47,6 +53,7 @@ export interface ShowcaseProject {
   title: string;
   slug: string;
   promptGroup: string;
+  artifactType: ShowcaseArtifactType;
   sourceDirectory: string;
   status: ProjectStatus;
   issues: string[];
@@ -147,6 +154,7 @@ export interface ShowcaseOverrides {
   order?: number;
   promptGroup?: string;
   comparisonGroup?: string | null;
+  artifact?: ShowcaseArtifactOverride;
   tags?: string[];
   featured?: boolean;
 }

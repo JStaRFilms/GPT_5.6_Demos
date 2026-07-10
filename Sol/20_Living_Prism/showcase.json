@@ -1,0 +1,11 @@
+{
+  "$schema": "../../docs/showcase.schema.json",
+  "title": "Living Prism",
+  "order": 20,
+  "artifact": {
+    "type": "static-app",
+    "directory": "out"
+  },
+  "tags": ["3D", "Interactive", "Next.js", "WebGL"],
+  "featured": true
+}

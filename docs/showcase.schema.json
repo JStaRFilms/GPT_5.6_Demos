@@ -15,6 +15,22 @@
       "type": ["string", "null"],
       "minLength": 1
     },
+    "artifact": {
+      "description": "Declare a prebuilt static application artifact instead of the default root index.html.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "directory"],
+      "properties": {
+        "type": { "const": "static-app" },
+        "directory": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+          "not": {
+            "pattern": "(?:^|/)(?:\\.[^/]*|docs|node_modules|__pycache__)(?:/|$)"
+          }
+        }
+      }
+    },
     "tags": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 },

@@ -15,16 +15,24 @@ A Next.js 15 / React 19 interactive WebGL study of the supplied iridescent blob 
 ## Run
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Production checks:
 
 ```bash
-npm run typecheck
-npm run build
+pnpm typecheck
+pnpm build
 ```
+
+Create the path-safe static artifact consumed by the Model Observatory:
+
+```bash
+pnpm build:showcase
+```
+
+This writes `out/` with the Observatory demo base path already applied. Review and commit that export when the experiment changes; the parent catalogue intentionally does not execute nested application builds.
 
 ## Interaction
 

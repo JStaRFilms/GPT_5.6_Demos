@@ -1,0 +1,13 @@
+{
+  "$schema": "../../docs/showcase.schema.json",
+  "title": "Atelier Sillon",
+  "slug": "atelier-sillon",
+  "order": 7,
+  "comparisonGroup": "project-07",
+  "artifact": {
+    "type": "static-app",
+    "directory": "out"
+  },
+  "tags": ["React", "Interactive", "E-commerce", "Framer Motion"],
+  "featured": true
+}

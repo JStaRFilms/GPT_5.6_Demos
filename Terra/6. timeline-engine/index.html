@@ -1,0 +1,1145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vanta — Motion Timeline Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              display: ["Arial Black", "Impact", "sans-serif"],
+              ui: ["Inter", "ui-sans-serif", "system-ui"],
+            },
+            colors: { signal: "#ff3b30" },
+          },
+        },
+      };
+    </script>
+    <style>
+      :root {
+        --red: #ff3b30;
+        --ink: #050505;
+        --line: rgba(255, 255, 255, 0.14);
+        --muted: #8b8b8b;
+        --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--ink);
+        color: #f8f8f8;
+        font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+        overflow: hidden;
+      }
+      button,
+      textarea,
+      input {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      .grain {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.045;
+        z-index: 20;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.75'/%3E%3C/svg%3E");
+      }
+      .dot-grid {
+        background-image: radial-gradient(
+          rgba(255, 255, 255, 0.16) 1px,
+          transparent 1px
+        );
+        background-size: 18px 18px;
+      }
+      .stage-glow {
+        background:
+          radial-gradient(
+            circle at 69% 43%,
+            rgba(255, 59, 48, 0.13),
+            transparent 20%
+          ),
+          radial-gradient(
+            circle at 14% 83%,
+            rgba(255, 255, 255, 0.06),
+            transparent 26%
+          );
+      }
+      .display {
+        font-family: "Arial Black", Impact, sans-serif;
+        letter-spacing: -0.075em;
+        line-height: 0.84;
+      }
+      .scanline {
+        background: repeating-linear-gradient(
+          0deg,
+          transparent 0 3px,
+          rgba(255, 255, 255, 0.026) 3px 4px
+        );
+      }
+      .thin-line {
+        border-color: var(--line);
+      }
+      .range {
+        appearance: none;
+        height: 3px;
+        background: linear-gradient(
+          90deg,
+          var(--red) var(--pct),
+          #2c2c2c var(--pct)
+        );
+        border-radius: 99px;
+      }
+      .range::-webkit-slider-thumb {
+        appearance: none;
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 0 0 3px var(--red);
+      }
+      .schema {
+        scrollbar-color: #444 transparent;
+      }
+      .schema::-webkit-scrollbar {
+        width: 5px;
+      }
+      .schema::-webkit-scrollbar-thumb {
+        background: #414141;
+        border-radius: 5px;
+      }
+      .marker-label {
+        writing-mode: vertical-rl;
+        transform: rotate(180deg);
+      }
+      @keyframes pulse {
+        50% {
+          opacity: 0.45;
+        }
+      }
+      .live-dot {
+        animation: pulse 1.3s ease-in-out infinite;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div class="grain"></div>
+    <script
+      crossorigin
+      src="https://unpkg.com/react@18/umd/react.production.min.js"
+    ></script>
+    <script
+      crossorigin
+      src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"
+    ></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="text/babel">
+      const { useEffect, useMemo, useRef, useState } = React;
+
+      const EASE = "cubic-bezier(.16,1,.3,1)";
+      const clamp = (n, min = 0, max = 1) => Math.min(max, Math.max(min, n));
+      const easeOut = (t) => 1 - Math.pow(1 - clamp(t), 4);
+      const formatTime = (ms) =>
+        `00:${String(Math.floor(ms / 1000)).padStart(2, "0")}:${String(Math.floor((ms % 1000) / 10)).padStart(2, "0")}`;
+
+      // The timeline is intentionally plain JSON so it can be authored outside the UI.
+      const DEFAULT_TIMELINE = {
+        project: "SIGNAL / 24",
+        fps: 60,
+        duration: 5000,
+        slides: [
+          {
+            id: "manifesto",
+            title: "Mission / Kinetic Type",
+            duration: 5000,
+            nodes: [
+              {
+                id: "eyebrow",
+                type: "text",
+                value: "THE SIGNAL STUDIO",
+                enter: 0,
+                enterDuration: 360,
+                exit: 4300,
+                exitDuration: 420,
+              },
+              {
+                id: "w1",
+                type: "text",
+                value: "WE",
+                enter: 240,
+                enterDuration: 620,
+                exit: 4000,
+                exitDuration: 520,
+              },
+              {
+                id: "w2",
+                type: "text",
+                value: "TURN",
+                enter: 470,
+                enterDuration: 620,
+                exit: 4000,
+                exitDuration: 520,
+              },
+              {
+                id: "w3",
+                type: "text",
+                value: "DATA",
+                enter: 810,
+                enterDuration: 620,
+                exit: 4000,
+                exitDuration: 520,
+              },
+              {
+                id: "w4",
+                type: "text",
+                value: "INTO",
+                enter: 1040,
+                enterDuration: 620,
+                exit: 4000,
+                exitDuration: 520,
+              },
+              {
+                id: "w5",
+                type: "text",
+                value: "MOMENTUM.",
+                enter: 1370,
+                enterDuration: 700,
+                exit: 4000,
+                exitDuration: 520,
+              },
+              {
+                id: "rule",
+                type: "marker",
+                enter: 1500,
+                enterDuration: 700,
+                exit: 4100,
+                exitDuration: 400,
+              },
+            ],
+          },
+          {
+            id: "velocity",
+            title: "Data / Line Graph",
+            duration: 5000,
+            nodes: [
+              {
+                id: "label",
+                type: "text",
+                value: "WEEKLY VELOCITY",
+                enter: 0,
+                enterDuration: 380,
+                exit: 4300,
+                exitDuration: 400,
+              },
+              {
+                id: "graphA",
+                type: "svg-graph",
+                enter: 460,
+                enterDuration: 2000,
+                exit: 4100,
+                exitDuration: 430,
+              },
+              {
+                id: "graphB",
+                type: "svg-graph",
+                enter: 720,
+                enterDuration: 2000,
+                exit: 4100,
+                exitDuration: 430,
+              },
+              {
+                id: "graphC",
+                type: "svg-graph",
+                enter: 940,
+                enterDuration: 2000,
+                exit: 4100,
+                exitDuration: 430,
+              },
+              {
+                id: "stat",
+                type: "text",
+                value: "+84.6%",
+                enter: 2600,
+                enterDuration: 540,
+                exit: 4200,
+                exitDuration: 380,
+              },
+            ],
+          },
+          {
+            id: "growth",
+            title: "Impact / Counters",
+            duration: 5000,
+            nodes: [
+              {
+                id: "label",
+                type: "text",
+                value: "COMPOUND GROWTH",
+                enter: 0,
+                enterDuration: 350,
+                exit: 4300,
+                exitDuration: 400,
+              },
+              {
+                id: "m1",
+                type: "marker",
+                enter: 500,
+                enterDuration: 520,
+                exit: 4200,
+                exitDuration: 380,
+                counter: 18,
+              },
+              {
+                id: "m2",
+                type: "marker",
+                enter: 1050,
+                enterDuration: 520,
+                exit: 4200,
+                exitDuration: 380,
+                counter: 42,
+              },
+              {
+                id: "m3",
+                type: "marker",
+                enter: 1600,
+                enterDuration: 520,
+                exit: 4200,
+                exitDuration: 380,
+                counter: 76,
+              },
+              {
+                id: "m4",
+                type: "marker",
+                enter: 2150,
+                enterDuration: 520,
+                exit: 4200,
+                exitDuration: 380,
+                counter: 124,
+              },
+              {
+                id: "m5",
+                type: "marker",
+                enter: 2700,
+                enterDuration: 520,
+                exit: 4200,
+                exitDuration: 380,
+                counter: 168,
+              },
+            ],
+          },
+        ],
+      };
+
+      function nodeProgress(node, playhead) {
+        const incoming = easeOut((playhead - node.enter) / node.enterDuration);
+        const outgoing =
+          node.exit == null
+            ? 1
+            : 1 - easeOut((playhead - node.exit) / node.exitDuration);
+        return clamp(Math.min(incoming, outgoing));
+      }
+      function useNode(node, playhead) {
+        const p = nodeProgress(node, playhead);
+        return {
+          opacity: p,
+          transform: `translate3d(${(1 - p) * 46}px, ${(1 - p) * 8}px, 0)`,
+          transition: "none",
+          willChange: "transform, opacity",
+        };
+      }
+
+      function Bracket({ className = "" }) {
+        return (
+          <span
+            className={`inline-block h-3 w-3 border-l border-t border-signal ${className}`}
+          />
+        );
+      }
+      function TinyGraph({ p, index }) {
+        const paths = [
+          "M12 150 C72 151 70 112 122 119 S181 73 228 89 S285 21 344 38 S419 13 480 18",
+          "M12 165 C63 152 86 139 126 145 S179 129 224 114 S278 86 331 98 S415 65 480 59",
+          "M12 179 C80 177 81 163 126 153 S179 154 225 136 S284 125 335 112 S422 104 480 84",
+        ];
+        const path = paths[index];
+        const length = 650;
+        return (
+          <path
+            d={path}
+            fill="none"
+            stroke={
+              index === 0 ? "#ff3b30" : index === 1 ? "#ffffff" : "#6f6f6f"
+            }
+            strokeWidth={index === 0 ? "3.5" : "2"}
+            strokeLinecap="round"
+            pathLength="100"
+            strokeDasharray="100"
+            strokeDashoffset={100 - p * 100}
+          />
+        );
+      }
+
+      function MissionSlide({ slide, playhead }) {
+        const words = slide.nodes.filter((n) => n.id.startsWith("w"));
+        const eyebrow = useNode(slide.nodes[0], playhead),
+          rule = useNode(slide.nodes.at(-1), playhead);
+        return (
+          <div className="relative h-full overflow-hidden p-8 sm:p-14 lg:p-16">
+            <div className="absolute inset-0 dot-grid opacity-30"></div>
+            <div className="relative flex h-full flex-col justify-between">
+              <div
+                className="flex items-center justify-between text-[10px] font-bold tracking-[.25em] text-zinc-400"
+                style={eyebrow}
+              >
+                <span>01 / {slide.title.toUpperCase()}</span>
+                <span>24 FPS · V01</span>
+              </div>
+              <div className="relative z-10 pb-6">
+                <div className="mb-6 flex items-center gap-3" style={rule}>
+                  <span className="h-px w-20 bg-signal" />
+                  <span className="text-[10px] font-bold tracking-[.3em] text-signal">
+                    DESIGNED TO MOVE
+                  </span>
+                </div>
+                <div className="display text-[clamp(3.5rem,10vw,9rem)] text-white">
+                  {words.map((word, i) => {
+                    const style = useNode(word, playhead);
+                    return (
+                      <div
+                        key={word.id}
+                        style={style}
+                        className={i === 2 ? "text-signal" : ""}
+                      >
+                        {word.value}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex items-end justify-between border-t thin-line pt-4 text-[10px] tracking-[.22em] text-zinc-500">
+                <span>MAKE COMPLEXITY LAND.</span>
+                <span>▲ 07° 14′ 32″ N</span>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      function GraphSlide({ slide, playhead }) {
+        const label = useNode(slide.nodes[0], playhead),
+          stat = useNode(slide.nodes.at(-1), playhead);
+        const graphs = slide.nodes
+          .filter((n) => n.type === "svg-graph")
+          .map((n) => nodeProgress(n, playhead));
+        return (
+          <div className="relative h-full overflow-hidden p-8 sm:p-14 lg:p-16">
+            <div className="absolute inset-0 stage-glow"></div>
+            <div className="relative flex h-full flex-col">
+              <div className="flex items-start justify-between" style={label}>
+                <div>
+                  <p className="m-0 text-[10px] font-bold tracking-[.28em] text-signal">
+                    02 / PERFORMANCE SYSTEM
+                  </p>
+                  <h2 className="display mt-3 text-[clamp(2.5rem,6vw,5.5rem)]">
+                    VELOCITY
+                    <br />
+                    IS VISIBLE.
+                  </h2>
+                </div>
+                <div className="border border-white/20 px-3 py-2 text-right text-[10px] tracking-[.16em] text-zinc-400">
+                  DATA RANGE
+                  <br />
+                  <span className="text-white">JAN — JUN 24</span>
+                </div>
+              </div>
+              <div className="relative mt-auto mb-8 h-[50%] min-h-[190px] border-l border-b border-white/25">
+                {[20, 40, 60, 80].map((y) => (
+                  <div
+                    key={y}
+                    className="absolute left-0 right-0 border-t border-dashed border-white/10"
+                    style={{ bottom: `${y}%` }}
+                  >
+                    <span className="absolute -left-9 -top-2 text-[9px] text-zinc-600">
+                      {y}K
+                    </span>
+                  </div>
+                ))}
+                <svg
+                  viewBox="0 0 500 200"
+                  preserveAspectRatio="none"
+                  className="absolute inset-0 h-full w-full overflow-visible"
+                >
+                  <TinyGraph p={graphs[2]} index={2} />
+                  <TinyGraph p={graphs[1]} index={1} />
+                  <TinyGraph p={graphs[0]} index={0} />
+                </svg>
+                <div className="absolute -bottom-6 left-0 right-0 flex justify-between text-[9px] font-bold tracking-[.15em] text-zinc-500">
+                  {["JAN", "FEB", "MAR", "APR", "MAY", "JUN"].map((x) => (
+                    <span key={x}>{x}</span>
+                  ))}
+                </div>
+                <div
+                  className="absolute right-[4%] top-[10%] border-l-2 border-signal pl-3"
+                  style={stat}
+                >
+                  <div className="display text-4xl text-signal">+84.6%</div>
+                  <div className="text-[9px] font-bold tracking-[.18em] text-zinc-400">
+                    NET EXPANSION
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-[10px] font-bold tracking-[.18em] text-zinc-400">
+                <span className="inline-block h-2 w-2 rounded-full bg-signal" />
+                PRIMARY SIGNAL{" "}
+                <span className="ml-3 inline-block h-px w-7 bg-white" />
+                BASELINE
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      function GrowthSlide({ slide, playhead }) {
+        const markerNodes = slide.nodes.filter((n) => n.type === "marker");
+        const label = useNode(slide.nodes[0], playhead);
+        return (
+          <div className="relative h-full overflow-hidden p-8 sm:p-14 lg:p-16">
+            <div className="absolute inset-0 scanline opacity-50"></div>
+            <div className="absolute left-[5%] top-[20%] h-px w-[90%] bg-white/20" />
+            <div className="relative flex h-full flex-col">
+              <div style={label}>
+                <p className="m-0 text-[10px] font-bold tracking-[.28em] text-signal">
+                  03 / EXPONENTIAL RESPONSE
+                </p>
+                <h2 className="display mt-3 text-[clamp(2.5rem,6vw,5.5rem)]">
+                  MOMENTUM
+                  <br />
+                  COMPOUNDS.
+                </h2>
+              </div>
+              <div className="relative mt-auto mb-12 h-[38%] border-b border-white/20">
+                <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-white/0 via-signal to-white/0 opacity-50" />
+                {markerNodes.map((node, i) => {
+                  const p = nodeProgress(node, playhead),
+                    count = Math.round(
+                      (node.counter || 0) *
+                        easeOut(
+                          (playhead - node.enter) /
+                            Math.min(900, node.enterDuration + 380),
+                        ),
+                    );
+                  const left = 7 + i * 21;
+                  const size = 22 + i * 13;
+                  return (
+                    <div
+                      key={node.id}
+                      className="absolute bottom-0 flex -translate-x-1/2 flex-col items-center"
+                      style={{
+                        left: `${left}%`,
+                        opacity: p,
+                        transform: `translateX(-50%) translateY(${(1 - p) * 28}px) scale(${0.25 + 0.75 * p})`,
+                        transformOrigin: "bottom center",
+                      }}
+                    >
+                      <div className="mb-3 text-center">
+                        <div className="display text-[clamp(1.7rem,3.8vw,3.8rem)]">
+                          {count}
+                          <span className="text-signal">%</span>
+                        </div>
+                        <div className="text-[9px] font-bold tracking-[.14em] text-zinc-500">
+                          Q{i + 1} SIGNAL
+                        </div>
+                      </div>
+                      <div
+                        className="rounded-full border border-signal bg-signal/10 shadow-[0_0_28px_rgba(255,59,48,.3)]"
+                        style={{ width: size, height: size }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex justify-between text-[10px] font-bold tracking-[.22em] text-zinc-500">
+                <span>BASELINE / 18</span>
+                <span className="text-white">YEAR-END / 168</span>
+                <span>+833% COMPOUND</span>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      const POINTS = Array.from({ length: 76 }, (_, i) => ({
+        x: (Math.sin(i * 12.9898) * 43758.5453) % 1,
+        y: (Math.sin((i + 31) * 78.233) * 24634.6345) % 1,
+        size: 2 + ((i * 7) % 5),
+      })).map((point) => ({
+        ...point,
+        x: Math.abs(point.x) * 90 + 5,
+        y: Math.abs(point.y) * 76 + 12,
+      }));
+
+      function WaveformSlide({ slide, playhead }) {
+        const texts = slide.nodes.filter((node) => node.type === "text");
+        const header = texts[0];
+        const words = texts.slice(1);
+        const wave = slide.nodes.find((node) => node.type === "waveform");
+        const waveProgress = wave ? nodeProgress(wave, playhead) : 0;
+        return (
+          <div className="relative h-full overflow-hidden p-8 sm:p-14 lg:p-16">
+            <div className="absolute inset-0 dot-grid opacity-25" />
+            <div className="absolute inset-x-0 bottom-[14%] h-px bg-signal/50" />
+            <div className="relative flex h-full flex-col justify-between">
+              <div
+                className="flex items-center justify-between text-[10px] font-bold tracking-[.25em] text-zinc-400"
+                style={header ? useNode(header, playhead) : undefined}
+              >
+                <span>01 / {slide.title.toUpperCase()}</span>
+                <span>LIVE INPUT · 60 FPS</span>
+              </div>
+              <div className="relative z-10">
+                <div className="mb-6 text-[10px] font-bold tracking-[.3em] text-signal">
+                  AUDIO REACTIVE SIGNAL
+                </div>
+                <div className="display text-[clamp(3.1rem,8vw,7.5rem)]">
+                  {words.map((word, index) => (
+                    <div
+                      key={word.id}
+                      style={useNode(word, playhead)}
+                      className={index === 2 ? "text-signal" : ""}
+                    >
+                      {word.value}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex h-20 items-center gap-1 overflow-hidden border-y border-white/10 py-3">
+                {Array.from({ length: 68 }, (_, i) => {
+                  const height =
+                    14 + Math.abs(Math.sin(i * 0.72) + Math.sin(i * 0.19)) * 58;
+                  return (
+                    <span
+                      key={i}
+                      className="w-full bg-signal"
+                      style={{
+                        height,
+                        opacity: waveProgress * (0.35 + (i % 5) / 10),
+                        transform: `scaleY(${0.15 + 0.85 * waveProgress})`,
+                        transition: `transform 180ms ${EASE}`,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      function PointCloudSlide({ slide, playhead }) {
+        const texts = slide.nodes.filter((node) => node.type === "text");
+        const cloudNodes = slide.nodes.filter(
+          (node) => node.type === "threejs-pointcloud",
+        );
+        const cloudProgress = cloudNodes.length
+          ? Math.max(...cloudNodes.map((node) => nodeProgress(node, playhead)))
+          : 0;
+        const header = texts[0],
+          metric = texts.at(-1);
+        return (
+          <div className="relative h-full overflow-hidden p-8 sm:p-14 lg:p-16">
+            <div className="absolute inset-0 stage-glow" />
+            <div className="relative flex h-full flex-col">
+              <div
+                className="flex items-start justify-between"
+                style={header ? useNode(header, playhead) : undefined}
+              >
+                <div>
+                  <p className="m-0 text-[10px] font-bold tracking-[.28em] text-signal">
+                    02 / TOPOLOGY SCAN
+                  </p>
+                  <h2 className="display mt-3 text-[clamp(2.2rem,5.5vw,5rem)]">
+                    DENSITY
+                    <br />
+                    IN MOTION.
+                  </h2>
+                </div>
+                <div className="border border-white/20 px-3 py-2 text-right text-[9px] tracking-[.16em] text-zinc-400">
+                  POINT CLOUD
+                  <br />
+                  <span className="text-white">{cloudNodes.length} LAYERS</span>
+                </div>
+              </div>
+              <div className="relative my-auto h-[55%] min-h-[185px] overflow-hidden border border-white/15 bg-black/30">
+                {POINTS.map((point, index) => (
+                  <span
+                    key={index}
+                    className={
+                      index % 9 === 0
+                        ? "absolute rounded-full bg-signal"
+                        : "absolute rounded-full bg-white"
+                    }
+                    style={{
+                      left: `${point.x}%`,
+                      top: `${point.y}%`,
+                      width: point.size,
+                      height: point.size,
+                      opacity: cloudProgress * (0.25 + (index % 7) / 10),
+                      transform: `scale(${0.2 + cloudProgress * ((index % 4) + 0.7)})`,
+                      transition: `all 400ms ${EASE}`,
+                    }}
+                  />
+                ))}
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.08)_1px,transparent_1px)] bg-[size:36px_36px] opacity-30" />
+              </div>
+              <div
+                className="flex items-end justify-between border-t thin-line pt-4 text-[10px] font-bold tracking-[.17em] text-zinc-500"
+                style={metric ? useNode(metric, playhead) : undefined}
+              >
+                <span>{metric?.value || "[0.000 // 0.000]"}</span>
+                <span className="text-signal">MESH LOCKED</span>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      function MetricsSlide({ slide, playhead }) {
+        const markers = slide.nodes.filter((node) => node.type === "marker");
+        const texts = slide.nodes.filter((node) => node.type === "text");
+        const header = texts[0],
+          metric = texts.at(-1);
+        return (
+          <div className="relative h-full overflow-hidden p-8 sm:p-14 lg:p-16">
+            <div className="absolute inset-0 scanline opacity-50" />
+            <div className="relative flex h-full flex-col">
+              <div style={header ? useNode(header, playhead) : undefined}>
+                <p className="m-0 text-[10px] font-bold tracking-[.28em] text-signal">
+                  03 / ITERATION TELEMETRY
+                </p>
+                <h2 className="display mt-3 text-[clamp(2.2rem,5.5vw,5rem)]">
+                  COMPUTE
+                  <br />
+                  ASCENDS.
+                </h2>
+              </div>
+              <div className="my-auto grid grid-cols-5 gap-2 border-y border-white/15 py-8">
+                {markers.map((node, index) => {
+                  const p = nodeProgress(node, playhead);
+                  const value = Math.round(
+                    (node.counter || 0) *
+                      easeOut((playhead - node.enter) / 850),
+                  );
+                  return (
+                    <div
+                      key={node.id}
+                      className="min-w-0 border-l border-signal pl-2"
+                      style={{
+                        opacity: p,
+                        transform: `translateY(${(1 - p) * 24}px)`,
+                        transition: `all 300ms ${EASE}`,
+                      }}
+                    >
+                      <div className="display text-[clamp(1.4rem,3.3vw,3.3rem)]">
+                        {value.toLocaleString()}
+                      </div>
+                      <div className="mt-1 text-[8px] font-bold tracking-[.12em] text-zinc-500">
+                        STEP {String(index + 1).padStart(2, "0")}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div
+                className="flex items-end justify-between text-[10px] font-bold tracking-[.18em] text-zinc-500"
+                style={metric ? useNode(metric, playhead) : undefined}
+              >
+                <span>{metric?.value || "SYSTEM OPTIMIZED"}</span>
+                <span className="text-signal">◉ STABLE</span>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      function GenericTextSlide({ slide, playhead }) {
+        const texts = slide.nodes.filter((node) => node.type === "text");
+        return (
+          <div className="relative h-full overflow-hidden p-8 sm:p-14 lg:p-16">
+            <div className="absolute inset-0 dot-grid opacity-25" />
+            <div className="relative flex h-full flex-col justify-between">
+              <div className="text-[10px] font-bold tracking-[.25em] text-signal">
+                CUSTOM TIMELINE / {slide.id.toUpperCase()}
+              </div>
+              <div className="display text-[clamp(2.8rem,7vw,7rem)]">
+                {texts.map((node, index) => (
+                  <div
+                    key={node.id}
+                    style={useNode(node, playhead)}
+                    className={index % 3 === 2 ? "text-signal" : ""}
+                  >
+                    {node.value}
+                  </div>
+                ))}
+              </div>
+              <div className="text-[10px] font-bold tracking-[.2em] text-zinc-500">
+                {slide.nodes.length} ACTIVE NODES
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      function Stage({ slide, playhead, compact }) {
+        return (
+          <div
+            className={`relative mx-auto w-auto max-w-full aspect-video overflow-hidden border border-white/15 bg-[#080808] shadow-2xl shadow-black ${compact ? "h-[min(61vw,62vh)]" : "h-[min(51vw,46vh)]"}`}
+          >
+            {slide.id === "manifesto" ? (
+              <MissionSlide slide={slide} playhead={playhead} />
+            ) : slide.id === "velocity" ? (
+              <GraphSlide slide={slide} playhead={playhead} />
+            ) : slide.id === "growth" ? (
+              <GrowthSlide slide={slide} playhead={playhead} />
+            ) : slide.nodes.some((node) => node.type === "waveform") ? (
+              <WaveformSlide slide={slide} playhead={playhead} />
+            ) : slide.nodes.some(
+                (node) => node.type === "threejs-pointcloud",
+              ) ? (
+              <PointCloudSlide slide={slide} playhead={playhead} />
+            ) : slide.nodes.some((node) => node.type === "marker") ? (
+              <MetricsSlide slide={slide} playhead={playhead} />
+            ) : (
+              <GenericTextSlide slide={slide} playhead={playhead} />
+            )}
+            <div className="pointer-events-none absolute inset-0 border-[10px] border-black/20" />
+          </div>
+        );
+      }
+
+      function App() {
+        const [timeline, setTimeline] = useState(DEFAULT_TIMELINE);
+        const [slideIndex, setSlideIndex] = useState(0);
+        const [playhead, setPlayhead] = useState(0);
+        const [playing, setPlaying] = useState(true);
+        const [speed, setSpeed] = useState(1);
+        const [showSchema, setShowSchema] = useState(false);
+        const [showTimeline, setShowTimeline] = useState(false);
+        const [schemaText, setSchemaText] = useState(
+          JSON.stringify(DEFAULT_TIMELINE, null, 2),
+        );
+        const [error, setError] = useState("");
+        const raf = useRef();
+        const last = useRef();
+        const slide = timeline.slides[slideIndex];
+        const duration = slide.duration;
+        useEffect(() => {
+          const tick = (now) => {
+            if (last.current == null) last.current = now;
+            const delta = (now - last.current) * speed;
+            last.current = now;
+            if (playing)
+              setPlayhead((v) => (v + delta >= duration ? 0 : v + delta));
+            raf.current = requestAnimationFrame(tick);
+          };
+          raf.current = requestAnimationFrame(tick);
+          return () => cancelAnimationFrame(raf.current);
+        }, [playing, speed, duration]);
+        function chooseSlide(i) {
+          setSlideIndex(i);
+          setPlayhead(0);
+          setPlaying(true);
+        }
+        function applySchema() {
+          try {
+            const source = schemaText.trim();
+            let parsed = JSON.parse(source);
+            if (typeof parsed === "string") parsed = JSON.parse(parsed);
+            if (!parsed.slides?.length)
+              throw new Error("Schema needs a non-empty slides array.");
+            const invalidSlide = parsed.slides.find(
+              (item) =>
+                !item.id ||
+                !item.title ||
+                !Number.isFinite(item.duration) ||
+                !Array.isArray(item.nodes),
+            );
+            if (invalidSlide)
+              throw new Error(
+                "Each slide needs id, title, numeric duration, and a nodes array.",
+              );
+            setTimeline(parsed);
+            setSchemaText(JSON.stringify(parsed, null, 2));
+            setSlideIndex(0);
+            setPlayhead(0);
+            setError("");
+            setShowSchema(false);
+          } catch (e) {
+            const wrapped = schemaText.trim().startsWith('"');
+            setError(
+              wrapped
+                ? "Paste raw JSON without quotation marks around the full document."
+                : e.message,
+            );
+          }
+        }
+        const progress = duration ? (playhead / duration) * 100 : 0;
+        return (
+          <main className="min-h-screen bg-[#050505] text-white">
+            <header className="flex h-16 items-center justify-between border-b thin-line px-5 sm:px-7">
+              <div className="flex items-center gap-3">
+                <div className="grid h-7 w-7 place-items-center bg-signal text-xs font-black text-black">
+                  V
+                </div>
+                <div>
+                  <div className="text-xs font-black tracking-[.25em]">
+                    VANTA
+                  </div>
+                  <div className="text-[8px] font-bold tracking-[.17em] text-zinc-500">
+                    TIMELINE RENDERER
+                  </div>
+                </div>
+              </div>
+              <div className="hidden items-center gap-5 text-[10px] font-bold tracking-[.18em] text-zinc-500 md:flex">
+                <span>JSON DRIVEN</span>
+                <span>•</span>
+                <span>60 FPS</span>
+                <span>•</span>
+                <span>SVG NATIVE</span>
+              </div>
+              <button
+                onClick={() => setShowSchema(!showSchema)}
+                className="border border-white/20 px-3 py-2 text-[10px] font-bold tracking-[.14em] transition hover:border-signal hover:text-signal"
+              >
+                {showSchema ? "CLOSE SCHEMA" : "EDIT JSON"}
+              </button>
+            </header>
+            <div className="grid min-h-[calc(100vh-64px)] grid-cols-1 lg:grid-cols-[230px_minmax(0,1fr)]">
+              <aside className="border-b thin-line bg-[#080808] p-5 lg:border-b-0 lg:border-r">
+                <div className="mb-5 text-[10px] font-bold tracking-[.22em] text-zinc-500">
+                  COMPOSITIONS / 03
+                </div>
+                <div className="flex gap-2 overflow-auto lg:block lg:space-y-1">
+                  {timeline.slides.map((item, i) => (
+                    <button
+                      key={item.id}
+                      onClick={() => chooseSlide(i)}
+                      className={`min-w-[155px] border p-3 text-left transition lg:w-full ${i === slideIndex ? "border-signal bg-signal/10" : "border-transparent hover:border-white/20"}`}
+                    >
+                      <div
+                        className={`mb-2 text-[9px] font-bold tracking-[.18em] ${i === slideIndex ? "text-signal" : "text-zinc-600"}`}
+                      >
+                        0{i + 1} / {item.id.toUpperCase()}
+                      </div>
+                      <div className="text-xs font-semibold">{item.title}</div>
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-8 hidden lg:block">
+                  <div className="mb-3 text-[10px] font-bold tracking-[.2em] text-zinc-500">
+                    NODE TYPES
+                  </div>
+                  {[
+                    ["T", "TEXT NODE"],
+                    ["⌁", "SVG GRAPH"],
+                    ["+", "MARKER"],
+                  ].map(([a, b]) => (
+                    <div
+                      className="mb-2 flex items-center gap-3 text-[10px] tracking-[.14em] text-zinc-400"
+                      key={b}
+                    >
+                      <span className="grid h-5 w-5 place-items-center border border-white/20 text-signal">
+                        {a}
+                      </span>
+                      {b}
+                    </div>
+                  ))}
+                </div>
+              </aside>
+              <section className="min-w-0 overflow-y-auto p-4 sm:p-8">
+                <div className="mx-auto max-w-6xl">
+                  <div className="mb-4 flex items-end justify-between">
+                    <div>
+                      <div className="mb-1 flex items-center gap-2 text-[10px] font-bold tracking-[.2em] text-signal">
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full bg-signal ${playing ? "live-dot" : ""}`}
+                        />
+                        {playing ? "RENDERING" : "PAUSED"}
+                      </div>
+                      <h1 className="m-0 text-lg font-semibold">
+                        {slide.title}
+                      </h1>
+                    </div>
+                    <div className="text-right font-mono text-xs text-zinc-400">
+                      <span className="text-white">{formatTime(playhead)}</span>{" "}
+                      / {formatTime(duration)}
+                    </div>
+                  </div>
+                  <Stage
+                    slide={slide}
+                    playhead={playhead}
+                    compact={!showTimeline}
+                  />
+                  <div className="mt-5 border border-white/15 bg-[#0a0a0a] p-4 sm:p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-[10px] font-bold tracking-[.2em] text-zinc-500">
+                          ACTIVE TIMELINE
+                        </div>
+                        <div className="mt-1 text-[9px] font-bold tracking-[.15em] text-zinc-600">
+                          {slide.nodes.length} NODES · {duration / 1000}s
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowTimeline(!showTimeline)}
+                        className="border border-white/20 px-3 py-2 text-[9px] font-bold tracking-[.15em] transition hover:border-signal hover:text-signal"
+                      >
+                        {showTimeline ? "HIDE TIMELINE" : "SHOW TIMELINE"}
+                      </button>
+                    </div>
+                    {showTimeline && (
+                      <>
+                        <input
+                          className="range w-full"
+                          style={{ "--pct": `${progress}%` }}
+                          type="range"
+                          min="0"
+                          max={duration}
+                          value={playhead}
+                          onChange={(e) => {
+                            setPlayhead(Number(e.target.value));
+                            setPlaying(false);
+                          }}
+                        />
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                          <button
+                            onClick={() => setPlaying(!playing)}
+                            className="bg-white px-4 py-2 text-[10px] font-black tracking-[.14em] text-black hover:bg-signal"
+                          >
+                            {playing ? "PAUSE" : "PLAY"}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setPlayhead(0);
+                              setPlaying(true);
+                            }}
+                            className="border border-white/20 px-4 py-2 text-[10px] font-bold tracking-[.14em] hover:border-signal"
+                          >
+                            RESTART
+                          </button>
+                          <div className="ml-auto flex items-center gap-1">
+                            {[0.5, 1, 1.5, 2].map((n) => (
+                              <button
+                                key={n}
+                                onClick={() => setSpeed(n)}
+                                className={`px-2 py-1 text-[10px] ${speed === n ? "text-signal" : "text-zinc-500 hover:text-white"}`}
+                              >
+                                {n}×
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="relative mt-5 space-y-1 border-t border-white/10 pt-2">
+                          <div
+                            className="pointer-events-none absolute bottom-0 top-2 z-10 w-px bg-signal shadow-[0_0_10px_#ff3b30]"
+                            style={{ left: `${progress}%` }}
+                          />
+                          {slide.nodes.map((node) => {
+                            const active =
+                              playhead >= node.enter && playhead <= node.exit;
+                            const type =
+                              node.type === "text"
+                                ? "TXT"
+                                : node.type === "svg-graph"
+                                  ? "SVG"
+                                  : "MRK";
+                            const end = node.exit ?? duration;
+                            return (
+                              <div
+                                key={node.id}
+                                className="relative h-4 bg-white/[.035]"
+                                title={`${node.id}: ${node.enter}ms`}
+                              >
+                                <div
+                                  className={`absolute inset-y-0 flex min-w-9 items-center overflow-hidden border-l border-white/30 px-1 text-[8px] font-bold tracking-wider transition-colors ${active ? "bg-signal text-black" : "bg-white/10 text-zinc-500"}`}
+                                  style={{
+                                    left: `${(node.enter / duration) * 100}%`,
+                                    width: `${Math.max(3, ((end - node.enter) / duration) * 100)}%`,
+                                    transitionDuration: "150ms",
+                                  }}
+                                >
+                                  {type}{" "}
+                                  <span className="ml-1 hidden truncate text-[7px] opacity-70 sm:inline">
+                                    {node.id}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  {showSchema && (
+                    <div className="fixed inset-0 z-30 grid place-items-center bg-black/80 p-4 backdrop-blur-sm">
+                      <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Edit animation timeline JSON"
+                        className="flex h-[min(78vh,42rem)] w-full max-w-4xl flex-col overflow-hidden border border-white/20 bg-[#090909] shadow-2xl shadow-black"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b thin-line px-4 py-3">
+                          <div>
+                            <span className="text-[10px] font-bold tracking-[.18em]">
+                              TIMELINE.JSON
+                            </span>
+                            <p className="mt-1 text-[10px] text-zinc-500">
+                              Update nodes, timing, or values — then apply.
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            <span className="max-w-48 text-right text-[10px] text-signal">
+                              {error}
+                            </span>
+                            <button
+                              onClick={applySchema}
+                              className="bg-signal px-3 py-1.5 text-[10px] font-black tracking-[.14em] text-black"
+                            >
+                              APPLY SCHEMA
+                            </button>
+                            <button
+                              onClick={() => setShowSchema(false)}
+                              aria-label="Close JSON editor"
+                              className="border border-white/20 px-3 py-1.5 text-[10px] font-bold tracking-[.14em] hover:border-signal hover:text-signal"
+                            >
+                              CLOSE
+                            </button>
+                          </div>
+                        </div>
+                        <textarea
+                          autoFocus
+                          spellCheck="false"
+                          value={schemaText}
+                          onChange={(e) => setSchemaText(e.target.value)}
+                          className="schema min-h-0 flex-1 resize-y bg-[#090909] p-4 font-mono text-xs leading-5 text-zinc-300 outline-none"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
+          </main>
+        );
+      }
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+  </body>
+</html>

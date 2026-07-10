@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Meadowbound — a tiny monster adventure</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { min-height:100vh; margin:0; display:grid; place-items:center; overflow:hidden; background:#24243e; font-family:monospace; }
+    .shell { width:min(96vw, 1000px); padding:16px; background:#f5e7bd; border:6px solid #1b1d29; box-shadow:0 0 0 5px #fff8df, 0 0 0 11px #1b1d29, 14px 18px 0 #111222; }
+    canvas { display:block; width:100%; height:auto; aspect-ratio:5/3; background:#8bcfbc; image-rendering:pixelated; image-rendering:crisp-edges; cursor:crosshair; }
+    .caption { margin:10px 2px 0; color:#283b4d; font-size:11px; letter-spacing:.08em; text-align:center; font-weight:bold; }
+    kbd { color:#fff8df; background:#283b4d; padding:1px 4px; border:1px solid #101a28; box-shadow:inset 0 -1px #5f89a0; }
+    @media (max-width:600px) { .shell { padding:8px; border-width:4px; } .caption { font-size:8px; } }
+  </style>
+</head>
+<body>
+  <main class="shell" aria-label="Meadowbound monster adventure">
+    <canvas id="game" width="960" height="576" aria-label="A playable retro monster battle game. Use arrow keys and Enter."></canvas>
+    <p class="caption"><kbd>ARROWS</kbd> move / choose &nbsp; <kbd>Z</kbd> or <kbd>ENTER</kbd> confirm &nbsp; <kbd>X</kbd> back</p>
+  </main>
+<script>
+(() => {
+  'use strict';
+  const canvas = document.querySelector('#game');
+  const c = canvas.getContext('2d');
+  c.imageSmoothingEnabled = false;
+  const W = canvas.width, H = canvas.height, T = 32;
+  const C = { ink:'#202638', black:'#111526', paper:'#fff8df', cream:'#f5e7bd', peach:'#f4bd9c', pink:'#e87f8f', rose:'#c65470', sky:'#8bcfbc', blue:'#4e89a8', navy:'#2e4969', leaf:'#4d9773', darkLeaf:'#297153', grass:'#b8d98a', sun:'#f4d06f', sand:'#e8ce91', bark:'#976650', white:'#fffdf2', gray:'#aeb8ba', purple:'#73659b' };
+  const keys = Object.create(null);
+  let state = 'title', last = 0, transition = 0, shake = 0, message = '', messageTimer = 0;
+  let audio = null, musicTimer = 0;
+  const player = { x:14*T, y:13*T, tx:14*T, ty:13*T, dir:'down', frame:0, moving:false, step:0, area:'meadow' };
+  const encounter = { active:false, enemy:null, phase:'menu', menu:0, move:0, playerHP:34, playerTarget:34, enemyHP:30, enemyTarget:30, maxP:34, maxE:30, timer:0, text:'What will MOSSY do?', winner:'' };
+  const movement = { up:[0,-1,'up'], down:[0,1,'down'], left:[-1,0,'left'], right:[1,0,'right'] };
+  const menuRects = [];
+
+  // 30 x 18 world tiles: g grass, p path, t tree/collision, w water/collision, f tall grass, h house wall/collision, d door.
+  const meadow = [
+    'tttttttttttttttttttttttttttttt',
+    'tggggggggggggggggggggggggggggt',
+    'tggggggggggggggggggggggggggggt',
+    'tggfffffgggggggggggggggffffggt',
+    'tggfffffgggggggggggggggffffggt',
+    'tggfffffgggggggggggggggffffggt',
+    'tggggggggggggggggggggggggggggt',
+    'tggggggggggggpppppppppgggggggt',
+    'tggggggggggggpgggggggpgggggggt',
+    'tggggggggggggpgggggggpgggggggt',
+    'tggggggggggggpggghhhhpgggggggt',
+    'tggggggggggggppppphdhppggggggt',
+    'tggggggggggggggggghhhhgffffggt',
+    'tgggggggggggggggggggggffffgggt',
+    'tgggggffffgggggggggggggffffggt',
+    'tgggggffffgggggggggggggggggggt',
+    'tgggggffffgggggggggggggggggggt',
+    'tttttttttttttttttttttttttttttt'
+  ];
+  const room = [
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    'b............................b',
+    'b...............s............b',
+    'b............................b',
+    'b.....tt.....................b',
+    'b............................b',
+    'b..............rr............b',
+    'b............................b',
+    'b............................b',
+    'b............d...............b',
+    'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+  ];
+  const tileAt = (x,y) => {
+    const map = player.area === 'meadow' ? meadow : room;
+    return map[Math.floor(y/T)]?.[Math.floor(x/T)] || 'b';
+  };
+  const blocked = tile => ['t','w','h','b'].includes(tile);
+  const px = (n) => Math.round(n);
+  function rect(x,y,w,h,color) { c.fillStyle=color; c.fillRect(px(x),px(y),px(w),px(h)); }
+  function line(x,y,w,h,color) { rect(x,y,w,h,color); }
+  function text(str,x,y,size=16,color=C.ink,align='left') { c.font=`bold ${size}px monospace`; c.textAlign=align; c.textBaseline='top'; c.fillStyle=color; c.fillText(str,px(x),px(y)); }
+  function panel(x,y,w,h) { rect(x,y,w,h,C.black); rect(x+4,y+4,w-8,h-8,C.white); rect(x+8,y+8,w-16,h-16,C.black); rect(x+12,y+12,w-24,h-24,C.paper); }
+  function hpBar(x,y,current,max,w=172) { rect(x,y,w,10,C.black); const r=Math.max(0,Math.min(1,current/max)); const col=r>.5?C.leaf:r>.2?C.sun:C.rose; rect(x+2,y+2,(w-4)*r,6,col); }
+
+  function beep(type='square', freq=440, length=.06, gain=.05, sweep=0) {
+    if (!audio) return;
+    const o=audio.createOscillator(), g=audio.createGain();
+    o.type=type; o.frequency.setValueAtTime(freq,audio.currentTime);
+    if(sweep) o.frequency.exponentialRampToValueAtTime(Math.max(20,freq+sweep),audio.currentTime+length);
+    g.gain.setValueAtTime(gain,audio.currentTime); g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+length);
+    o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime+length);
+  }
+  function sound(kind) {
+    if(!audio) return;
+    if(kind==='menu') beep('square', 640,.035,.035,-80);
+    if(kind==='walk') beep('square', 115,.025,.018,0);
+    if(kind==='hit') { beep('sawtooth',180,.15,.08,-135); setTimeout(()=>beep('square',80,.08,.05,-30),55); }
+    if(kind==='cry') { beep('square',250,.08,.06,250); setTimeout(()=>beep('square',390,.12,.05,-210),75); }
+    if(kind==='win') [0,100,200,300].forEach((t,i)=>setTimeout(()=>beep('square',330+i*90,.09,.05),t));
+  }
+  function activateAudio() { if(!audio) { audio=new (window.AudioContext||window.webkitAudioContext)(); } if(audio.state==='suspended') audio.resume(); }
+
+  function drawGrassTile(x,y, tall=false) {
+    rect(x,y,T,T,tall?C.grass:C.sky);
+    rect(x,y+22,T,10,tall?C.darkLeaf:'#77bf91');
+    for(let i=0;i<5;i++) { const ox=(i*7+5)%30; line(x+ox,y+(tall?8:20),2,tall?16:5,tall?C.leaf:'#4d9773'); }
+    if(tall) { line(x+3,y+5,2,18,C.leaf); line(x+20,y+2,2,20,C.leaf); line(x+27,y+7,2,15,C.leaf); }
+  }
+  function drawTree(x,y) { rect(x+3,y+12,26,20,C.bark); rect(x+1,y+4,30,17,C.darkLeaf); rect(x+5,y,22,25,C.leaf); rect(x+8,y+3,4,4,'#82bd70'); rect(x+19,y+9,4,4,'#82bd70'); }
+  function drawHouse(x,y) { rect(x,y,4*T,3*T,C.black); rect(x+4,y+4,4*T-8,3*T-8,C.cream); rect(x+6,y+6,4*T-12,36,C.rose); for(let i=0;i<4;i++) rect(x+8+i*30,y+10,23,5,C.peach); rect(x+12,y+44,4*T-24,42,C.peach); rect(x+52,y+58,24,28,C.bark); rect(x+57,y+63,14,22,C.navy); rect(x+13,y+56,19,17,C.sky); rect(x+96,y+56,19,17,C.sky); }
+  function drawMeadow() {
+    for(let y=0;y<meadow.length;y++) for(let x=0;x<30;x++) { const q=meadow[y][x], X=x*T,Y=y*T; if(q==='t') drawTree(X,Y); else if(q==='f') drawGrassTile(X,Y,true); else if(q==='p') { drawGrassTile(X,Y); rect(X,Y+22,T,10,C.sand); rect(X,Y+26,T,3,'#d3b77b'); } else drawGrassTile(X,Y); }
+    drawHouse(17*T,10*T);
+    // Flowers and sign
+    [[4,8],[7,12],[23,8],[26,15],[9,4]].forEach(([x,y])=>{rect(x*T+13,y*T+13,6,6,C.pink);rect(x*T+15,y*T+11,2,10,C.sun);});
+    rect(12*T+10,7*T+7,12,21,C.bark); rect(12*T+5,7*T+4,22,12,C.cream); text('M',12*T+12,7*T+6,8,C.ink);
+  }
+  function drawRoom() {
+    rect(0,0,W,H,C.cream); rect(0,0,W,32,C.bark); rect(0,320,W,32,C.bark);
+    for(let x=0;x<W;x+=32) { rect(x,32,2,288,'#e8ce91'); rect(x,320,2,32,'#704b40'); }
+    // rug, table, plant and door
+    rect(13*T,6*T,3*T,2*T,C.rose); rect(13*T+4,6*T+4,3*T-8,2*T-8,C.peach);
+    rect(5*T,4*T,2*T,1*T,C.bark); rect(5*T+4,4*T+4,56,24,C.sand); rect(6*T-2,4*T+8,4,16,C.navy);
+    rect(16*T,2*T+8,20,40,C.bark); rect(16*T+4,2*T,12,18,C.leaf);
+    rect(12*T,9*T,32,32,C.bark); rect(12*T+5,9*T+3,22,27,C.navy);
+    text('MOSSY\'S REST', W/2,42,14,C.rose,'center');
+  }
+  function drawPlayer() {
+    const x=player.x, y=player.y; const bob=player.moving?(player.frame?1:0):0;
+    rect(x+8,y+6+bob,16,21,C.black); rect(x+10,y+5+bob,12,5,C.rose); rect(x+8,y+10+bob,16,7,C.rose); rect(x+10,y+17+bob,12,10,C.paper); rect(x+11,y+18+bob,10,8,C.navy); rect(x+9,y+27+bob,6,4,C.black); rect(x+18,y+27+bob,6,4,C.black);
+    if(player.dir==='left') rect(x+8,y+12+bob,3,3,C.ink); else if(player.dir==='right') rect(x+21,y+12+bob,3,3,C.ink); else { rect(x+12,y+12+bob,2,3,C.ink); rect(x+20,y+12+bob,2,3,C.ink); }
+  }
+  function drawWorld() { if(player.area==='meadow') drawMeadow(); else drawRoom(); drawPlayer(); panel(12,12,270,52); text(player.area==='meadow'?'MEADOW PATH':'MAPLE COTTAGE',28,26,15,C.navy); text(player.area==='meadow'?'Wild grass rustles in the breeze.':'A warm place to rest.',28,44,10,C.ink); }
+
+  function monster(x,y,kind,back=false,scale=1) {
+    // Programmatic pixel monsters; all shapes snap to the game grid.
+    const s=scale, q=(a)=>Math.round(a*s), X=x,Y=y;
+    if(kind==='MOSSY') {
+      rect(X+q(18),Y+q(18),q(58),q(51),C.black); rect(X+q(21),Y+q(21),q(52),q(45),'#79b95f');
+      rect(X+q(4),Y+q(13),q(26),q(24),C.black); rect(X+q(7),Y+q(16),q(20),q(18),C.leaf); rect(X+q(63),Y+q(8),q(25),q(29),C.black); rect(X+q(66),Y+q(11),q(19),q(22),C.leaf);
+      rect(X+q(25),Y+q(30),q(7),q(7),C.white); rect(X+q(58),Y+q(30),q(7),q(7),C.white); rect(X+q(27),Y+q(32),q(3),q(3),C.ink); rect(X+q(60),Y+q(32),q(3),q(3),C.ink);
+      rect(X+q(41),Y+q(42),q(12),q(6),C.peach); rect(X+q(30),Y+q(63),q(16),q(7),C.darkLeaf); rect(X+q(55),Y+q(63),q(16),q(7),C.darkLeaf);
+      if(back) { rect(X+q(28),Y+q(22),q(38),q(32),C.darkLeaf); rect(X+q(32),Y+q(26),q(30),q(8),C.leaf); }
+    } else {
+      rect(X+q(17),Y+q(28),q(55),q(45),C.black); rect(X+q(21),Y+q(31),q(47),q(38),C.purple);
+      rect(X+q(10),Y+q(13),q(28),q(30),C.black); rect(X+q(14),Y+q(16),q(20),q(22),C.rose); rect(X+q(55),Y+q(10),q(28),q(32),C.black); rect(X+q(59),Y+q(14),q(20),q(22),C.rose);
+      rect(X+q(27),Y+q(40),q(7),q(7),C.white); rect(X+q(55),Y+q(40),q(7),q(7),C.white); rect(X+q(29),Y+q(42),q(3),q(3),C.ink); rect(X+q(57),Y+q(42),q(3),q(3),C.ink);
+      rect(X+q(37),Y+q(54),q(16),q(5),C.peach); rect(X+q(6),Y+q(57),q(20),q(9),C.rose); rect(X+q(64),Y+q(57),q(20),q(9),C.rose);
+    }
+  }
+  function statPanel(x,y,name,level,hp,max,enemy=false) { panel(x,y,270,86); text(name,x+22,y+20,18,C.ink); text('Lv.'+level,x+210,y+21,13,C.ink); if(!enemy) { text('HP',x+25,y+48,13,C.ink); hpBar(x+52,y+51,hp,max,155); text(String(Math.ceil(hp))+'/'+max,x+173,y+67,12,C.ink); } else { text('HP',x+24,y+49,13,C.ink); hpBar(x+51,y+52,hp,max,155); } }
+  function drawBattle() {
+    rect(0,0,W,H,'#c9dba8');
+    for(let y=0;y<H;y+=12) line(0,y,W,2,'#b0c88f');
+    // platforms
+    rect(536,176,290,18,'#8dad70'); rect(565,164,230,14,'#a7bf82'); rect(116,392,310,20,'#8dad70'); rect(145,380,250,14,'#a7bf82');
+    const flash=shake>0 && Math.floor(shake*16)%2===0 ? 5 : 0;
+    monster(645+flash,84,'FIZZLE',false,1.45); monster(190-flash,284,'MOSSY',true,1.7);
+    statPanel(40,60,'WILD FIZZLE',4,encounter.enemyHP,encounter.maxE,true); statPanel(650,315,'MOSSY',7,encounter.playerHP,encounter.maxP);
+    panel(18,456,924,105);
+    if(encounter.phase==='menu') {
+      text(encounter.text,42,478,18,C.ink); panel(588,468,336,80); const options=['FIGHT','BAG','PKMN','RUN']; options.forEach((o,i)=>{const x=615+(i%2)*150,y=483+Math.floor(i/2)*31; text((encounter.menu===i?'▶ ':'  ')+o,x,y,17,C.ink); menuRects.push({x:x-10,y:y-3,w:125,h:25,kind:'menu',i});});
+    } else if(encounter.phase==='moves') {
+      text('Choose a move.',42,478,18,C.ink); panel(405,468,519,80); const moves=['TACKLE','LEAF CUT','BUBBLE POP','GROWL']; moves.forEach((m,i)=>{const x=430+(i%2)*245,y=483+Math.floor(i/2)*31; text((encounter.move===i?'▶ ':'  ')+m,x,y,16,C.ink); menuRects.push({x:x-10,y:y-3,w:220,h:25,kind:'move',i});});
+    } else { text(encounter.text,42,490,18,C.ink); if(encounter.phase==='win'||encounter.phase==='lose'||encounter.phase==='caught') text('Press Z to continue',625,521,12,C.navy); }
+  }
+  function drawTitle() {
+    rect(0,0,W,H,C.sky); for(let i=0;i<32;i++) drawGrassTile((i%15)*64,300+Math.floor(i/15)*42,false);
+    rect(0,0,W,9,C.black); rect(0,9,W,5,C.white); rect(0,14,W,3,C.black);
+    text('MEADOWBOUND',W/2,112,52,C.black,'center'); text('MEADOWBOUND',W/2-3,108,52,C.rose,'center'); text('a tiny monster adventure',W/2,178,17,C.navy,'center');
+    monster(300,230,'MOSSY',false,2); monster(585,245,'FIZZLE',false,1.8);
+    panel(250,460,460,65); text('PRESS Z OR ENTER TO START',W/2,482,18,C.ink,'center');
+  }
+  function drawTransition() { drawWorld(); const amount=Math.min(1,transition/0.65); c.fillStyle=C.black; for(let y=0;y<H;y+=32) { const offset=(y/32)%2?16:0; for(let x=-offset;x<W;x+=32) { const d=Math.abs(x-W/2)+Math.abs(y-H/2); if(d<amount*620) c.fillRect(x,y,30,30); } } }
+  function drawMessage() { if(message && messageTimer>0) { panel(18,456,924,105); text(message,42,486,18,C.ink); } }
+  function render() { menuRects.length=0; if(state==='title') drawTitle(); else if(state==='explore'||state==='room') { drawWorld(); drawMessage(); } else if(state==='transition') drawTransition(); else drawBattle(); }
+
+  function startBattle() { state='transition'; transition=0; sound('cry'); }
+  function enterBattle() { state='battle'; encounter.active=true; encounter.phase='menu'; encounter.menu=0; encounter.enemy={name:'FIZZLE'}; encounter.enemyHP=encounter.enemyTarget=30; encounter.playerHP=encounter.playerTarget=34; encounter.text='A wild FIZZLE appeared!'; setTimeout(()=>{if(state==='battle') encounter.text='What will MOSSY do?';},850); }
+  function showMessage(txt, secs=1.25) { message=txt; messageTimer=secs; }
+  function attemptMove(dx,dy,dir) {
+    if(player.moving || state!=='explore' && state!=='room') return;
+    player.dir=dir; const nx=player.tx+dx*T,ny=player.ty+dy*T, tile=tileAt(nx,ny);
+    if(blocked(tile)) { sound('menu'); return; }
+    player.tx=nx; player.ty=ny; player.moving=true; player.step=0; sound('walk');
+  }
+  function finishStep() {
+    player.moving=false;
+    const tile=tileAt(player.x,player.y);
+    if(player.area==='meadow' && tile==='f' && Math.random()<.15) startBattle();
+    if(player.area==='meadow' && tile==='d') { player.area='room'; player.x=player.tx=12*T; player.y=player.ty=8*T; state='room'; showMessage('Welcome! The kettle is still warm.'); sound('menu'); }
+    else if(player.area==='room' && tile==='d') { player.area='meadow'; player.x=player.tx=18*T; player.y=player.ty=12*T; state='explore'; showMessage('Back to Meadow Path.'); sound('menu'); }
+  }
+  function battleChoose() {
+    sound('menu'); const v=encounter.menu;
+    if(v===0) { encounter.phase='moves'; encounter.move=0; }
+    if(v===1) { encounter.phase='message'; encounter.text='Your bag is packed with kind thoughts.'; setTimeout(()=>{if(state==='battle'){encounter.phase='menu';encounter.text='What will MOSSY do?';}},1100); }
+    if(v===2) { encounter.phase='message'; encounter.text='MOSSY is looking brave.'; setTimeout(()=>{if(state==='battle'){encounter.phase='menu';encounter.text='What will MOSSY do?';}},1100); }
+    if(v===3) { if(Math.random()<.8) { encounter.phase='caught'; encounter.text='Got away safely!'; sound('win'); } else { encounter.phase='message'; encounter.text='Couldn\'t escape!'; setTimeout(enemyTurn,700); } }
+  }
+  function useMove() {
+    const names=['TACKLE','LEAF CUT','BUBBLE POP','GROWL']; const damage=[7,10,8,3][encounter.move]; encounter.phase='message'; encounter.text='MOSSY used '+names[encounter.move]+'!'; encounter.enemyTarget=Math.max(0,encounter.enemyTarget-damage); shake=.32; sound('hit');
+    setTimeout(()=>{ if(encounter.enemyTarget<=0) { encounter.phase='win'; encounter.text='Wild FIZZLE fainted!'; sound('win'); } else { encounter.text='It was super cozy!'; setTimeout(enemyTurn,650); } },700);
+  }
+  function enemyTurn() { if(state!=='battle') return; encounter.phase='message'; encounter.text='Wild FIZZLE used SPARK!'; encounter.playerTarget=Math.max(0,encounter.playerTarget-(4+Math.floor(Math.random()*6))); shake=.25; sound('hit'); setTimeout(()=>{if(encounter.playerTarget<=0){encounter.phase='lose';encounter.text='MOSSY needs a little rest...';}else {encounter.phase='menu';encounter.text='What will MOSSY do?';}},800); }
+  function leaveBattle() { encounter.active=false; state='explore'; showMessage(encounter.phase==='win'?'MOSSY gained 18 cozy points!':'You return to the path.'); }
+  function handleConfirm() {
+    activateAudio();
+    if(state==='title') { state='explore'; showMessage('Find tall grass to meet a wild monster!',2.6); sound('cry'); return; }
+    if(state==='battle') { if(encounter.phase==='menu') battleChoose(); else if(encounter.phase==='moves') useMove(); else if(['win','lose','caught'].includes(encounter.phase)) leaveBattle(); }
+  }
+  function handleBack() { if(state==='battle' && encounter.phase==='moves') { encounter.phase='menu'; sound('menu'); } }
+  function onKey(e,down) {
+    const k=e.key.toLowerCase(); if(['arrowup','arrowdown','arrowleft','arrowright',' ','enter','z','x','w','a','s','d'].includes(k)) e.preventDefault();
+    if(!down) { delete keys[k]; return; } keys[k]=true; activateAudio();
+    if(k==='enter'||k==='z'||k===' ') return handleConfirm(); if(k==='x'||k==='escape') return handleBack();
+    if(state==='battle') { const opts=encounter.phase==='menu'?4:encounter.phase==='moves'?4:0; if(opts) { const vertical=k==='arrowup'||k==='w'?-1:k==='arrowdown'||k==='s'?1:0; const horiz=k==='arrowleft'||k==='a'?-1:k==='arrowright'||k==='d'?1:0; if(vertical||horiz) { const key=encounter.phase==='menu'?'menu':'move'; let n=encounter[key]; if(horiz) n=(n%2===0)?n+1:n-1; if(vertical) n=(n+2)%4; encounter[key]=n; sound('menu'); } } return; }
+    const control={arrowup:'up',w:'up',arrowdown:'down',s:'down',arrowleft:'left',a:'left',arrowright:'right',d:'right'}[k]; if(control) { const [dx,dy,dir]=movement[control]; attemptMove(dx,dy,dir); }
+  }
+  document.addEventListener('keydown',e=>onKey(e,true)); document.addEventListener('keyup',e=>onKey(e,false));
+  canvas.addEventListener('pointerdown', e=>{ activateAudio(); const r=canvas.getBoundingClientRect(), x=(e.clientX-r.left)*W/r.width, y=(e.clientY-r.top)*H/r.height; if(state==='title') return handleConfirm(); if(state==='battle') { const hit=menuRects.find(a=>x>=a.x&&x<=a.x+a.w&&y>=a.y&&y<=a.y+a.h); if(hit) { encounter[hit.kind]=hit.i; handleConfirm(); } else if(['win','lose','caught'].includes(encounter.phase)) handleConfirm(); } });
+  function update(dt) {
+    if(player.moving) { player.step+=dt; const f=Math.min(1,player.step/.15); player.x+=(player.tx-player.x)*Math.min(1,dt*11); player.y+=(player.ty-player.y)*Math.min(1,dt*11); player.frame=Math.floor(player.step/.075)%2; if(f>=1 || (Math.abs(player.x-player.tx)<.5&&Math.abs(player.y-player.ty)<.5)) { player.x=player.tx;player.y=player.ty;finishStep(); } }
+    if(state==='transition') { transition+=dt; if(transition>.65) enterBattle(); }
+    if(messageTimer>0) { messageTimer-=dt; if(messageTimer<=0) message=''; }
+    if(shake>0) shake-=dt;
+    if(state==='battle') { const ease=(a,b)=>a+(b-a)*Math.min(1,dt*4.8); encounter.playerHP=ease(encounter.playerHP,encounter.playerTarget); encounter.enemyHP=ease(encounter.enemyHP,encounter.enemyTarget); }
+  }
+  function loop(now) { const dt=Math.min(.05,(now-last)/1000||0); last=now; update(dt); render(); requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

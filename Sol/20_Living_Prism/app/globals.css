@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+  --background: #020104;
+  --foreground: #f7f3f8;
+  --gutter: clamp(1.25rem, 3vw, 3.5rem);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  min-width: 320px;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--background);
+}
+
+body {
+  color: var(--foreground);
+  font-family: var(--font-sans), "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+button,
+a {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.prism-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.86' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.85'/%3E%3C/svg%3E");
+}
+
+.prism-fallback {
+  opacity: 0.72;
+  background:
+    radial-gradient(circle at 61% 39%, #08060c 0 17%, transparent 24%),
+    radial-gradient(circle at 78% 58%, #09060e 0 20%, transparent 30%),
+    radial-gradient(circle at 55% 73%, #060509 0 22%, transparent 34%),
+    conic-gradient(from 145deg at 70% 49%, #ff572e, #ff3ba9, #6e3eff, #27cfff, #00b982, #ffc739, #ff572e, #08060c 94%);
+  filter: saturate(1.2);
+  mask-image: radial-gradient(ellipse 55% 68% at 71% 51%, black 0 60%, transparent 72%);
+}
+
+.prism-title {
+  font-size: clamp(3.65rem, 7.1vw, 8.35rem);
+  font-weight: 300;
+  letter-spacing: -0.075em;
+  line-height: 0.77;
+}
+
+.prism-title em {
+  margin-left: clamp(0.8rem, 4vw, 4rem);
+  color: transparent;
+  background: linear-gradient(102deg, #ff7849 3%, #ff49aa 31%, #8a62ff 61%, #51dcf2 92%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.045em;
+}
+
+.prism-focus:focus-visible {
+  outline: 2px solid #68e0ff;
+  outline-offset: 5px;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --gutter: 1.25rem;
+  }
+
+  .prism-title {
+    font-size: clamp(3.3rem, 15vw, 5.25rem);
+    line-height: 0.8;
+  }
+
+  .prism-title em {
+    margin-left: 0.65rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

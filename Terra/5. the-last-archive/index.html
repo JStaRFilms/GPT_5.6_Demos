@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="The Last Archive — a moving editorial essay about what the hand remembers." />
+  <title>The Last Archive — An Editorial Passage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #f2efe9;
+      --ink: #25231f;
+      --muted: #7f796e;
+      --line: rgba(37, 35, 31, .24);
+      --red: #a23a27;
+      --display: "Cormorant Garamond", Georgia, serif;
+      --mono: "DM Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--paper); scroll-behavior: auto; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--display); overflow-x: hidden; }
+    ::selection { color: var(--paper); background: var(--ink); }
+    @media (pointer: fine) { body, a, button { cursor: none; } }
+
+    #ink-canvas { position: fixed; inset: 0; z-index: 20; pointer-events: none; mix-blend-mode: multiply; }
+    .cursor { position: fixed; z-index: 30; width: 15px; height: 15px; border: 1px solid var(--ink); border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%); transition: width .24s ease, height .24s ease, background .24s ease, border .24s ease; mix-blend-mode: multiply; }
+    .cursor::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--ink); transform: scale(.55); transition: transform .24s ease; }
+    .cursor.is-active { width: 46px; height: 46px; background: rgba(37,35,31,.08); }
+    .cursor.is-active::after { transform: scale(.18); }
+
+    .masthead { position: fixed; z-index: 10; top: 0; left: 0; width: 100%; height: 90px; padding: 24px 34px 0; display: flex; justify-content: space-between; align-items: flex-start; pointer-events: none; }
+    .masthead > * { pointer-events: auto; }
+    .edition, .menu, .index-label, .eyebrow, .caption, .coordinates, .side-note, .footer-meta { font-family: var(--mono); letter-spacing: .05em; text-transform: uppercase; font-size: 9px; line-height: 1.45; }
+    .edition { display: flex; gap: 15px; align-items: center; }
+    .edition-mark { width: 8px; height: 8px; background: var(--red); border-radius: 50%; display: inline-block; }
+    .menu { border: 0; background: transparent; color: var(--ink); padding: 0; display: flex; align-items: center; gap: 10px; }
+    .menu-bars { display: grid; gap: 3px; width: 20px; }.menu-bars i { display: block; width: 20px; height: 1px; background: var(--ink); }
+
+    .progress { position: fixed; z-index: 10; left: 34px; bottom: 28px; display: flex; gap: 8px; align-items: center; }
+    .progress .line { position: relative; width: 112px; height: 1px; background: var(--line); overflow: hidden; }
+    .progress .line b { position: absolute; left: 0; top: 0; height: 100%; width: 0; background: var(--ink); }
+    .scroll-cue { position: fixed; right: 34px; bottom: 28px; z-index: 10; color: var(--muted); }
+    .scroll-cue::before { content: "↓"; margin-right: 9px; color: var(--ink); }
+
+    .h-scroll { height: 510vh; position: relative; }
+    .story { position: sticky; top: 0; height: 100vh; overflow: hidden; }
+    .rail { display: flex; height: 100%; width: max-content; will-change: transform; }
+    .panel { position: relative; flex: 0 0 100vw; width: 100vw; height: 100vh; padding: 126px max(5.5vw, 34px) 86px; display: flex; align-items: center; overflow: hidden; }
+
+    .panel-grid { width: 100%; height: 100%; display: grid; grid-template-columns: minmax(130px, 1fr) minmax(380px, 4.3fr) minmax(150px, 1.15fr); gap: clamp(25px, 4vw, 76px); align-items: center; }
+    .index-label { align-self: start; color: var(--muted); padding-top: 4px; }
+    .index-label span { display: block; color: var(--ink); font-size: 13px; margin-bottom: 8px; }
+    .side-note { color: var(--muted); align-self: end; padding-bottom: 5px; max-width: 130px; }
+
+    .intro-grid { grid-template-columns: minmax(130px, 1fr) minmax(500px, 5.3fr) minmax(150px, 1.1fr); }
+    .intro h1 { max-width: 850px; margin: 0; font-weight: 400; font-size: clamp(72px, 11.2vw, 178px); letter-spacing: -.065em; line-height: .7; }
+    .intro h1 em { display: block; margin-left: 13vw; font-weight: 400; }
+    .intro-copy { max-width: 370px; margin: 55px 0 0 auto; font-size: clamp(17px, 1.55vw, 22px); line-height: 1.22; }
+    .intro-copy:first-letter, .body-copy:first-letter { float: left; font-size: 4.2em; line-height: .7; padding: .12em .12em 0 0; color: var(--red); }
+    .circle-stamp { position: absolute; top: 22%; right: 9%; width: 122px; aspect-ratio: 1; border: 1px solid var(--ink); border-radius: 50%; display: grid; place-items: center; transform: rotate(14deg); }
+    .circle-stamp span { width: 83px; text-align: center; font: 8px/1.6 var(--mono); text-transform: uppercase; letter-spacing: .12em; }
+
+    .chapter-heading { margin: 0; font-size: clamp(55px, 7vw, 112px); line-height: .78; letter-spacing: -.055em; font-weight: 500; max-width: 760px; }
+    .chapter-heading em { font-weight: 400; color: var(--red); }
+    .body-copy { max-width: 405px; margin: 52px 0 0; font-size: clamp(18px, 1.75vw, 26px); line-height: 1.15; }
+    .rule { width: 100%; height: 1px; background: var(--ink); margin: 30px 0 13px; }
+
+    .photo-panel { align-items: stretch; padding-top: 112px; padding-bottom: 71px; }
+    .photo-wrap { position: relative; width: 100%; height: 100%; isolation: isolate; overflow: hidden; background: #d8d0c1; }
+    .photo-wrap img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(100%) contrast(1.05) sepia(18%); transform: scale(1.035); }
+    .photo-wrap::after { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, rgba(32,25,18,.18), transparent 47%, rgba(32,25,18,.11)); mix-blend-mode: multiply; pointer-events: none; }
+    .photo-caption { position: absolute; z-index: 2; bottom: 17px; left: 18px; right: 18px; padding-top: 10px; color: #f3ede1; border-top: 1px solid rgba(243,237,225,.8); display: flex; justify-content: space-between; }
+    .photo-title { position: absolute; z-index: 2; top: 35px; left: 40px; max-width: 530px; color: #f8f2e7; font-size: clamp(53px, 8vw, 122px); letter-spacing: -.06em; line-height: .73; font-weight: 400; }
+    .photo-title em { display: block; margin-left: 15%; }
+    .photo-marker { position: absolute; z-index: 2; top: 34px; right: 40px; color: #f8f2e7; }
+
+    .quote-panel { background: var(--ink); color: var(--paper); }
+    .quote-panel .panel-grid { grid-template-columns: minmax(130px,1fr) minmax(490px,5fr) minmax(150px,1.1fr); }
+    .quote-panel .index-label, .quote-panel .side-note { color: #bdb6a9; }
+    .quote-panel .index-label span { color: var(--paper); }
+    blockquote { margin: 0; }
+    blockquote p { margin: 0; max-width: 1000px; font-size: clamp(45px, 6vw, 94px); font-style: italic; letter-spacing: -.045em; line-height: .87; }
+    blockquote p::before { content: "“"; color: var(--red); }
+    blockquote cite { display: block; margin-top: 32px; color: #bdb6a9; font: 10px var(--mono); text-transform: uppercase; letter-spacing: .1em; font-style: normal; }
+    .quote-number { font-size: clamp(110px, 20vw, 300px); color: rgba(242,239,233,.06); position: absolute; right: 6vw; bottom: -2.4vw; font-weight: 400; line-height: 1; }
+
+    .ending .panel-grid { grid-template-columns: minmax(130px, 1fr) minmax(500px, 5.3fr) minmax(150px, 1.1fr); }
+    .ending-title { margin: 0; max-width: 900px; font-size: clamp(65px, 9vw, 140px); letter-spacing: -.065em; line-height: .72; font-weight: 400; }
+    .ending-title em { color: var(--red); font-weight: 400; }
+    .footer-meta { position: absolute; left: max(5.5vw, 34px); right: max(5.5vw, 34px); bottom: 90px; padding-top: 11px; border-top: 1px solid var(--ink); display: flex; justify-content: space-between; }
+    .read-more { display: inline-flex; align-items: center; gap: 12px; margin-top: 50px; color: var(--ink); font: 10px var(--mono); text-transform: uppercase; text-decoration: none; letter-spacing: .08em; }
+    .read-more::after { content: "↗"; font-size: 15px; transition: transform .25s ease; }.read-more:hover::after { transform: translate(4px,-4px); }
+
+    .grain { position: fixed; z-index: 25; inset: 0; pointer-events: none; opacity: .12; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E"); }
+
+    @media (max-width: 720px) {
+      .masthead { height: 75px; padding: 20px 20px 0; }.progress { left: 20px; bottom: 20px; }.scroll-cue { right: 20px; bottom: 20px; }
+      .h-scroll { height: auto; }.story { position: static; height: auto; overflow: visible; }.rail { width: 100%; height: auto; display: block; transform: none !important; }.panel { min-height: 100svh; height: auto; padding: 105px 20px 82px; }
+      .panel-grid, .intro-grid, .quote-panel .panel-grid, .ending .panel-grid { grid-template-columns: 1fr; gap: 20px; }.index-label { align-self: auto; }.side-note { display: none; }
+      .intro h1 { font-size: clamp(68px, 22vw, 115px); line-height: .72; }.intro h1 em { margin-left: 10vw; }.intro-copy { margin: 42px 0 0 auto; max-width: 290px; }
+      .circle-stamp { top: auto; bottom: 20%; right: 11%; width: 98px; }.photo-panel { padding: 82px 0 0; min-height: 100svh; }.photo-wrap { min-height: 100svh; }.photo-title { top: 23%; left: 20px; }.photo-marker { top: 18px; right: 20px; }
+      .quote-panel { min-height: 85svh; }.quote-number { bottom: 0; right: 4vw; }.footer-meta { left: 20px; right: 20px; bottom: 74px; gap: 20px; }.ending-title { font-size: clamp(65px, 19vw, 100px); }.cursor { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <canvas id="ink-canvas" aria-hidden="true"></canvas>
+  <div class="cursor" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="masthead">
+    <div class="edition"><i class="edition-mark"></i><span>The Last Archive</span><span id="clock">Paris — 00:00:00</span></div>
+    <button class="menu" aria-label="Open index"><span>Index</span><span class="menu-bars"><i></i><i></i></span></button>
+  </header>
+  <div class="progress"><span class="eyebrow">Passage</span><span class="line"><b id="progress-bar"></b></span><span class="eyebrow" id="progress-count">01 / 05</span></div>
+  <div class="scroll-cue eyebrow">Scroll to travel</div>
+
+  <main class="h-scroll" id="story-shell">
+    <div class="story">
+      <div class="rail" id="rail">
+        <section class="panel intro" aria-labelledby="title">
+          <div class="panel-grid intro-grid">
+            <div class="index-label"><span>01</span>Opening note<br>May, 1987</div>
+            <div>
+              <p class="eyebrow">An essay in five movements</p>
+              <h1 id="title">What the hand <em>remembers.</em></h1>
+              <p class="intro-copy">A small inventory of gestures, weathered objects, and the quiet rituals we perform to prove that we were here.</p>
+            </div>
+            <p class="side-note">Pull the page sideways with the weight of your scroll.</p>
+          </div>
+          <div class="circle-stamp"><span>Not for circulation<br>Filed under: touch<br>1987 / vol. iv</span></div>
+        </section>
+
+        <section class="panel" aria-labelledby="chapter-one">
+          <div class="panel-grid">
+            <div class="index-label"><span>02</span>Chapter one<br>Resistance</div>
+            <div>
+              <p class="eyebrow">01 — On friction</p>
+              <h2 class="chapter-heading" id="chapter-one">The surface is never <em>silent.</em></h2>
+              <div class="rule"></div>
+              <p class="body-copy">Every room keeps a record of contact: a burnished handle, an uneven floorboard, the pale crescent on a favourite cup. The body edits its surroundings one return at a time.</p>
+            </div>
+            <p class="side-note">Above: carbon transfer, pressed into stock paper. A mark made by passing through.</p>
+          </div>
+        </section>
+
+        <section class="panel photo-panel" aria-label="Vintage photograph of a woman in a field">
+          <figure class="photo-wrap">
+            <img src="https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?auto=format&fit=crop&w=2000&q=85" alt="A woman standing alone in tall grass" />
+            <div class="photo-marker eyebrow">Fig. 01 / found print</div>
+            <h2 class="photo-title">The weather <em>turns.</em></h2>
+            <figcaption class="photo-caption caption"><span>Outside Auxerre, 1978</span><span>Silver gelatin / 24 × 36 cm</span></figcaption>
+          </figure>
+        </section>
+
+        <section class="panel quote-panel" aria-label="Quotation">
+          <span class="quote-number">03</span>
+          <div class="panel-grid">
+            <div class="index-label"><span>03</span>Interlude<br>For the absent</div>
+            <blockquote>
+              <p>To touch a thing is to accept its instruction: stay long enough to be changed by it.</p>
+              <cite>— Margot Vey, private notebooks</cite>
+            </blockquote>
+            <p class="side-note">A sentence from an unnamed envelope, kept between two sheets of tracing paper.</p>
+          </div>
+        </section>
+
+        <section class="panel photo-panel" aria-label="Vintage photograph of a train platform">
+          <figure class="photo-wrap">
+            <img src="https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=2000&q=85" alt="Train moving through a misty city landscape" />
+            <div class="photo-marker eyebrow">Fig. 02 / after rain</div>
+            <h2 class="photo-title">A departure, <em>rehearsed.</em></h2>
+            <figcaption class="photo-caption caption"><span>Gare du Nord, 06:16</span><span>From a roll of twelve</span></figcaption>
+          </figure>
+        </section>
+
+        <section class="panel ending" aria-labelledby="closing-title">
+          <div class="panel-grid">
+            <div class="index-label"><span>05</span>Closing note<br>Return</div>
+            <div>
+              <p class="eyebrow">The archive remains unfinished</p>
+              <h2 id="closing-title" class="ending-title">Leave a trace. <em>Let it move.</em></h2>
+              <a href="#title" class="read-more">Return to the beginning</a>
+            </div>
+            <p class="side-note">Move your cursor slowly. It carries a little of the page with it.</p>
+          </div>
+          <div class="footer-meta"><span>Published from the editorial desk</span><span>Issue 04 — © 2026</span></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const rail = document.getElementById('rail');
+    const shell = document.getElementById('story-shell');
+    const bar = document.getElementById('progress-bar');
+    const count = document.getElementById('progress-count');
+    const panels = [...document.querySelectorAll('.panel')];
+    const isMobile = () => window.matchMedia('(max-width: 720px)').matches;
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let latestScroll = 0, currentX = 0, targetX = 0, ticking = false;
+
+    function getProgress() {
+      const max = Math.max(1, shell.offsetHeight - window.innerHeight);
+      return Math.min(1, Math.max(0, (window.scrollY - shell.offsetTop) / max));
+    }
+    function updateScroll() {
+      const progress = getProgress();
+      const index = Math.min(panels.length - 1, Math.floor(progress * panels.length));
+      bar.style.width = `${progress * 100}%`;
+      count.textContent = `${String(index + 1).padStart(2, '0')} / ${String(panels.length).padStart(2, '0')}`;
+      if (!isMobile()) targetX = progress * (panels.length - 1) * window.innerWidth;
+    }
+    function animateRail() {
+      currentX += (targetX - currentX) * (reduceMotion ? 1 : .085);
+      if (!isMobile()) rail.style.transform = `translate3d(${-currentX}px,0,0)`;
+      requestAnimationFrame(animateRail);
+    }
+    window.addEventListener('scroll', () => { latestScroll = window.scrollY; if (!ticking) { requestAnimationFrame(() => { updateScroll(latestScroll); ticking = false; }); ticking = true; } }, { passive: true });
+    window.addEventListener('resize', updateScroll);
+    updateScroll(); animateRail();
+
+    const clock = document.getElementById('clock');
+    function setClock() {
+      const now = new Date();
+      const paris = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(now);
+      clock.textContent = `Paris — ${paris}`;
+    }
+    setClock(); setInterval(setClock, 1000);
+
+    const canvas = document.getElementById('ink-canvas');
+    const ctx = canvas.getContext('2d');
+    const cursor = document.querySelector('.cursor');
+    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let mouse = { x: -100, y: -100, px: -100, py: -100, vx: 0, vy: 0 };
+    const marks = [];
+    function resizeCanvas() { dpr = Math.min(window.devicePixelRatio || 1, 2); canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr; canvas.style.width = innerWidth + 'px'; canvas.style.height = innerHeight + 'px'; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+    resizeCanvas(); window.addEventListener('resize', resizeCanvas);
+
+    function addMark(x, y, force = 1) {
+      const speed = Math.min(24, Math.hypot(mouse.vx, mouse.vy));
+      marks.push({ x, y, vx: mouse.vx * .16, vy: mouse.vy * .16, life: 1, size: (5 + speed * .75) * force, angle: Math.atan2(mouse.vy, mouse.vx), spin: (Math.random() - .5) * .12, hue: Math.random() > .87 ? '#a23a27' : '#25231f' });
+      if (marks.length > 130) marks.shift();
+    }
+    window.addEventListener('pointermove', (e) => {
+      mouse.vx = e.clientX - mouse.x; mouse.vy = e.clientY - mouse.y; mouse.px = mouse.x; mouse.py = mouse.y; mouse.x = e.clientX; mouse.y = e.clientY;
+      cursor.style.left = mouse.x + 'px'; cursor.style.top = mouse.y + 'px';
+      if (e.pointerType === 'mouse' && (Math.abs(mouse.vx) + Math.abs(mouse.vy) > 1.2)) addMark(mouse.x, mouse.y);
+    });
+    window.addEventListener('pointerdown', (e) => { cursor.classList.add('is-active'); for (let i = 0; i < 8; i++) { const angle = Math.PI * 2 * i / 8 + Math.random() * .4; addMark(e.clientX + Math.cos(angle) * (8 + Math.random() * 18), e.clientY + Math.sin(angle) * (8 + Math.random() * 18), 1.6); } });
+    window.addEventListener('pointerup', () => cursor.classList.remove('is-active'));
+    document.querySelectorAll('a, button').forEach(el => { el.addEventListener('mouseenter', () => cursor.classList.add('is-active')); el.addEventListener('mouseleave', () => cursor.classList.remove('is-active')); });
+
+    function renderInk() {
+      ctx.clearRect(0, 0, innerWidth, innerHeight);
+      ctx.globalCompositeOperation = 'source-over';
+      for (let i = marks.length - 1; i >= 0; i--) {
+        const m = marks[i];
+        m.life -= .018; m.x += m.vx; m.y += m.vy; m.vx *= .96; m.vy *= .96; m.angle += m.spin;
+        if (m.life <= 0) { marks.splice(i, 1); continue; }
+        ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.angle);
+        ctx.strokeStyle = m.hue; ctx.globalAlpha = m.life * .38; ctx.lineWidth = Math.max(.4, m.life * 1.4); ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-m.size, 0); ctx.bezierCurveTo(-m.size*.3, -m.size*.8, m.size*.2, m.size*.7, m.size, 0); ctx.stroke();
+        if (m.life > .55) { ctx.globalAlpha = m.life * .14; ctx.beginPath(); ctx.arc(0, 0, m.size * .45, .2, Math.PI * 1.5); ctx.stroke(); }
+        ctx.restore();
+      }
+      requestAnimationFrame(renderInk);
+    }
+    renderInk();
+  </script>
+</body>
+</html>

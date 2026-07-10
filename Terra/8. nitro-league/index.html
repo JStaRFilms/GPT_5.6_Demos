@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Nitro League — Neon Car Soccer</title>
+  <style>
+    :root { --blue:#20d9ff; --orange:#ff7b22; --ink:#060419; --glass:rgba(11,8,35,.66); }
+    * { box-sizing:border-box; }
+    html,body { margin:0; width:100%; height:100%; overflow:hidden; background:#050217; color:#fff; font-family:Arial,Helvetica,sans-serif; }
+    canvas { display:block; }
+    #hud { position:fixed; inset:0; pointer-events:none; z-index:5; text-transform:uppercase; letter-spacing:.12em; }
+    .panel { background:linear-gradient(135deg,rgba(18,12,57,.84),rgba(5,4,23,.55)); border:1px solid rgba(83,213,255,.36); box-shadow:0 0 22px rgba(23,157,255,.16),inset 0 0 22px rgba(108,44,255,.08); backdrop-filter:blur(7px); }
+    #controls { position:absolute; top:22px; left:22px; padding:14px 16px; min-width:235px; border-left:3px solid var(--blue); font-size:11px; line-height:2; color:#c7e8ff; }
+    #controls b { color:#fff; font-size:12px; }
+    #scoreboard { position:absolute; top:18px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:19px; padding:10px 18px; min-width:370px; justify-content:center; }
+    .team { display:flex; align-items:center; gap:9px; font-weight:800; font-size:12px; }
+    .team span { font-size:27px; letter-spacing:0; text-shadow:0 0 14px currentColor; }
+    .blue { color:var(--blue); } .orange { color:var(--orange); }
+    #timer { font:700 24px/1 "Courier New",monospace; color:#fff; padding:0 10px; text-shadow:0 0 12px #b68aff; }
+    #boost-wrap { position:absolute; right:28px; bottom:24px; width:122px; height:122px; border-radius:50%; padding:8px; background:rgba(7,8,30,.72); border:1px solid rgba(86,223,255,.55); box-shadow:0 0 26px rgba(16,195,255,.23),inset 0 0 25px rgba(20,68,255,.2); }
+    #boost-ring { width:100%; height:100%; border-radius:50%; background:conic-gradient(var(--blue) calc(var(--boost) * 1%),rgba(104,156,255,.12) 0); display:grid; place-items:center; transform:rotate(-45deg); }
+    #boost-core { width:78%; height:78%; border-radius:50%; display:grid; place-items:center; background:#090725; border:1px solid rgba(75,195,255,.27); transform:rotate(45deg); box-shadow:inset 0 0 18px rgba(11,58,167,.4); }
+    #boost-value { font-size:29px; line-height:.8; font-weight:900; color:white; text-shadow:0 0 10px var(--blue); letter-spacing:-.08em; }
+    #boost-label { margin-top:6px; font-size:9px; color:var(--blue); }
+    #notice { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) scale(.8); opacity:0; white-space:nowrap; font-weight:900; font-size:clamp(36px,7vw,95px); text-align:center; color:#fff; text-shadow:0 0 9px currentColor,0 0 35px currentColor,5px 5px 0 #25104c; transition:opacity .18s,transform .18s; }
+    #notice.show { opacity:1; transform:translate(-50%,-50%) scale(1); animation:blink .55s infinite alternate; }
+    #notice small { display:block; margin-top:8px; color:#ffd84a; font-size:13px; letter-spacing:.35em; }
+    @keyframes blink { from { filter:brightness(.8); } to { filter:brightness(1.7); } }
+    #kickoff { position:absolute; left:50%; bottom:28px; transform:translateX(-50%); font-size:10px; color:#d7c8ff; opacity:.72; }
+    #vignette { position:absolute; inset:0; background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.5) 110%); }
+    .shake { animation:shake .4s linear; }
+    @keyframes shake { 0%,100%{translate:0} 20%{translate:-13px 6px} 40%{translate:12px -7px} 60%{translate:-8px -4px} 80%{translate:8px 5px} }
+    @media(max-width:600px){ #controls{top:12px;left:12px;font-size:9px;min-width:192px;padding:9px 11px;} #scoreboard{top:8px;min-width:0;gap:7px;padding:8px 10px}.team{font-size:9px}.team span{font-size:19px}#timer{font-size:17px;padding:0 3px}#boost-wrap{right:14px;bottom:14px;width:94px;height:94px}#boost-value{font-size:23px}#kickoff{display:none} }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div id="vignette"></div>
+    <div id="controls" class="panel"><b>CONTROLS</b><br>WASD <span>—</span> DRIVE / STEER<br>SPACE <span>—</span> JUMP<br>LEFT SHIFT <span>—</span> NITRO BOOST</div>
+    <div id="scoreboard" class="panel"><div class="team blue">BLUE <span id="blue-score">0</span></div><div id="timer">05:00</div><div class="team orange"><span id="orange-score">0</span> ORANGE</div></div>
+    <div id="boost-wrap"><div id="boost-ring" style="--boost:100"><div id="boost-core"><div id="boost-value">100</div><div id="boost-label">BOOST</div></div></div></div>
+    <div id="notice"></div><div id="kickoff">NITRO LEAGUE // FIRST TO GLORY</div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+  <script>
+  (() => {
+    const THREE = window.THREE, CANNON = window.CANNON;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x05021a);
+    scene.fog = new THREE.FogExp2(0x090323, .018);
+    const renderer = new THREE.WebGLRenderer({ antialias:true, powerPreference:'high-performance' });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; document.body.appendChild(renderer.domElement);
+    const camera = new THREE.PerspectiveCamera(67, innerWidth/innerHeight, .1, 260);
+    // Start on a composed stadium-wide view so the arena is visible on the first frame.
+    camera.position.set(0, 14, 34); camera.lookAt(0, 0, 0);
+    const world = new CANNON.World(); world.gravity.set(0,-18,0); world.broadphase = new CANNON.SAPBroadphase(world); world.solver.iterations = 12; world.allowSleep = true;
+    const material = new CANNON.Material('arena'); const ballMaterial = new CANNON.Material('ball');
+    world.addContactMaterial(new CANNON.ContactMaterial(material, ballMaterial, { friction:.28, restitution:.76 }));
+    world.addContactMaterial(new CANNON.ContactMaterial(material, material, { friction:.65, restitution:.18 }));
+    const clock = new THREE.Clock(); const keys = {}; let boost=100, blue=0, orange=0, time=300, goalLock=false, lastTime=0, airborne=false;
+    const tmpV = new THREE.Vector3(), camGoal = new THREE.Vector3(), lookGoal = new THREE.Vector3();
+    const blueScore = document.querySelector('#blue-score'), orangeScore=document.querySelector('#orange-score'), timer=document.querySelector('#timer'), boostRing=document.querySelector('#boost-ring'), boostValue=document.querySelector('#boost-value'), notice=document.querySelector('#notice');
+    function neonMat(color, intensity=1) { return new THREE.MeshStandardMaterial({color, emissive:color, emissiveIntensity:intensity, metalness:.5, roughness:.28}); }
+    function addStaticBox(pos, size, color=0x17103c, visible=true) {
+      const b = new CANNON.Body({mass:0, material}); b.addShape(new CANNON.Box(new CANNON.Vec3(size.x/2,size.y/2,size.z/2))); b.position.set(pos.x,pos.y,pos.z); world.addBody(b);
+      if(visible){ const m=new THREE.Mesh(new THREE.BoxGeometry(size.x,size.y,size.z),neonMat(color,.18)); m.position.copy(pos); m.receiveShadow=true; scene.add(m); }
+      return b;
+    }
+    // Stadium floor, retaining walls, and split goal-line walls.
+    addStaticBox(new THREE.Vector3(0,-.3,0),new THREE.Vector3(36,.6,56),0x120b35);
+    addStaticBox(new THREE.Vector3(-18,2,0),new THREE.Vector3(.7,4,56),0x16104a); addStaticBox(new THREE.Vector3(18,2,0),new THREE.Vector3(.7,4,56),0x16104a);
+    for(const z of [-28,28]) { addStaticBox(new THREE.Vector3(-12,2,z),new THREE.Vector3(12,4,.7),0x211037); addStaticBox(new THREE.Vector3(12,2,z),new THREE.Vector3(12,4,.7),0x211037); addStaticBox(new THREE.Vector3(0,2,z+(z>0?3:-3)),new THREE.Vector3(12,4,.5),0x130d38); }
+    const field = new THREE.Mesh(new THREE.PlaneGeometry(35.3,55.3), new THREE.MeshStandardMaterial({color:0x171047,emissive:0x0a0624,emissiveIntensity:.75,roughness:.72,metalness:.05})); field.rotation.x=-Math.PI/2; field.receiveShadow=true; scene.add(field);
+    const grid = new THREE.GridHelper(56,28,0x2444a4,0x171148); grid.rotation.y=Math.PI/2; grid.scale.x=.625; grid.position.y=.025; scene.add(grid);
+    const lineMat=new THREE.LineBasicMaterial({color:0x35baff,transparent:true,opacity:.5}); const circle=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(Array.from({length:65},(_,i)=>new THREE.Vector3(Math.cos(i/64*Math.PI*2)*5,.05,Math.sin(i/64*Math.PI*2)*5))),lineMat); scene.add(circle);
+    const midLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-17.5,.06,0),new THREE.Vector3(17.5,.06,0)]),lineMat); scene.add(midLine);
+    // Lights and distant arena shells.
+    scene.add(new THREE.HemisphereLight(0x506cff,0x180d25,.9));
+    const mainLight=new THREE.DirectionalLight(0xaac9ff,1.9); mainLight.position.set(-10,25,8); mainLight.castShadow=true; mainLight.shadow.mapSize.set(1024,1024); mainLight.shadow.camera.left=-32;mainLight.shadow.camera.right=32;mainLight.shadow.camera.top=32;mainLight.shadow.camera.bottom=-32;scene.add(mainLight);
+    const addSpot=(x,z,color)=>{const l=new THREE.SpotLight(color,2.3,90,.55,.75);l.position.set(x,17,z);l.target.position.set(0,0,0);scene.add(l,l.target);}; [-16,16].forEach(x=>{addSpot(x,-21,0x4cb9ff);addSpot(x,21,0xff6a23);});
+    const postMatB=neonMat(0x19cfff,2.2),postMatO=neonMat(0xff6425,2.2);
+    function goalFrame(z,mat){ const g=new THREE.Group(); const depth=z>0?1:-1; [[-6,2,z],[6,2,z],[0,4,z],[-6,2,z+depth*3],[6,2,z+depth*3]].forEach((p,i)=>{let geo=i===2?new THREE.BoxGeometry(12,.22,.22):new THREE.BoxGeometry(.22,4,.22);let m=new THREE.Mesh(geo,mat);m.position.set(...p);g.add(m);});scene.add(g); }
+    goalFrame(-28,postMatB); goalFrame(28,postMatO);
+    // Boost pads.
+    const pads=[]; const padMatOn=neonMat(0xffc21d,2.5), padMatOff=new THREE.MeshStandardMaterial({color:0x493511,emissive:0x493511,emissiveIntensity:.2});
+    [[-10,-15],[10,-15],[-10,15],[10,15],[-14,0],[14,0],[0,-11],[0,11]].forEach(([x,z])=>{let mesh=new THREE.Mesh(new THREE.CylinderGeometry(.72,.72,.08,20),padMatOn);mesh.position.set(x,.09,z);scene.add(mesh);pads.push({mesh,x,z,active:true,cool:0});});
+    // Ball with wireframe "panel" shell.
+    const ballMesh=new THREE.Group(); const ballBase=new THREE.Mesh(new THREE.SphereGeometry(1.5,28,20),new THREE.MeshStandardMaterial({color:0xeef4ff,roughness:.35,metalness:.14}));ballBase.castShadow=true; const ballWire=new THREE.Mesh(new THREE.SphereGeometry(1.515,12,8),new THREE.MeshBasicMaterial({color:0x1a1650,wireframe:true,transparent:true,opacity:.78}));ballMesh.add(ballBase,ballWire);scene.add(ballMesh);
+    const ball=new CANNON.Body({mass:7,material:ballMaterial,linearDamping:.012,angularDamping:.02,position:new CANNON.Vec3(0,2.2,0)});ball.addShape(new CANNON.Sphere(1.5));world.addBody(ball);
+    // Player car: physics chassis with a layered neon sports-car model.
+    const car=new CANNON.Body({mass:160,material,linearDamping:.08,angularDamping:1,position:new CANNON.Vec3(0,1.0,17)});car.addShape(new CANNON.Box(new CANNON.Vec3(1.35,.42,2.05)));car.fixedRotation=true;car.updateMassProperties();world.addBody(car);
+    const carMesh=new THREE.Group(); const carPaint=neonMat(0x1479ff,.6), darkPaint=new THREE.MeshStandardMaterial({color:0x09102f,metalness:.78,roughness:.22});
+    const chassis=new THREE.Mesh(new THREE.BoxGeometry(2.7,.7,4.1),carPaint);chassis.position.y=.05;chassis.castShadow=true;carMesh.add(chassis);
+    const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.8,.6,1.75),darkPaint);cabin.position.set(0,.58,-.2);cabin.castShadow=true;carMesh.add(cabin);
+    const spoiler=new THREE.Mesh(new THREE.BoxGeometry(2.35,.11,.34),neonMat(0x20d9ff,1.2));spoiler.position.set(0,.64,-1.82);carMesh.add(spoiler);
+    const wheelGeo=new THREE.CylinderGeometry(.48,.48,.33,16);wheelGeo.rotateZ(Math.PI/2); const wheelMat=new THREE.MeshStandardMaterial({color:0x05050d,metalness:.45,roughness:.62});
+    for(const x of [-1.37,1.37]) for(const z of [-1.35,1.35]){const w=new THREE.Mesh(wheelGeo,wheelMat);w.position.set(x,-.38,z);w.castShadow=true;carMesh.add(w);}
+    const lightStrip=new THREE.Mesh(new THREE.BoxGeometry(2.15,.12,.08),neonMat(0x77efff,3));lightStrip.position.set(0,.02,2.08);carMesh.add(lightStrip);scene.add(carMesh);
+    // Boost spark particles.
+    const sparkGeo=new THREE.SphereGeometry(.09,5,5), sparkMat=new THREE.MeshBasicMaterial({color:0xffca29}); const sparks=[];
+    function spawnSpark(){const m=new THREE.Mesh(sparkGeo,sparkMat.clone());m.position.copy(carMesh.position);const back=new THREE.Vector3(0,0,-1.9).applyQuaternion(carMesh.quaternion);m.position.add(back);m.position.y+=.1;scene.add(m);sparks.push({m,v:back.multiplyScalar(7+Math.random()*7).add(new THREE.Vector3((Math.random()-.5)*3,Math.random()*3,(Math.random()-.5)*3)),life:.28+Math.random()*.2});}
+    function resetRound(){ball.position.set(0,2.2,0);ball.velocity.set(0,0,0);ball.angularVelocity.set(0,0,0);car.position.set(0,1,17);car.velocity.set(0,0,0);car.quaternion.setFromEuler(0,Math.PI,0);boost=100; goalLock=false; notice.classList.remove('show');}
+    function score(team){ if(goalLock)return;goalLock=true;if(team==='BLUE'){blue++;blueScore.textContent=blue;notice.style.color='#20d9ff';}else{orange++;orangeScore.textContent=orange;notice.style.color='#ff7b22';}notice.innerHTML=`GOAL! ${team} SCORES<small>RESETTING ARENA</small>`;notice.classList.add('show');document.body.classList.add('shake');setTimeout(()=>document.body.classList.remove('shake'),420);setTimeout(resetRound,3000); }
+    function updateHUD(){boost=Math.max(0,Math.min(100,boost));boostRing.style.setProperty('--boost',boost);boostValue.textContent=Math.round(boost);const m=Math.max(0,Math.ceil(time));timer.textContent=`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;}
+    addEventListener('keydown',e=>{keys[e.code]=true;if(['Space','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault();});addEventListener('keyup',e=>keys[e.code]=false);
+    function updateCar(dt){
+      const forward=keys.KeyW||keys.ArrowUp, backward=keys.KeyS||keys.ArrowDown, left=keys.KeyA||keys.ArrowLeft, right=keys.KeyD||keys.ArrowRight, boosting=keys.ShiftLeft&&boost>0&&forward&&!goalLock;
+      const q=new THREE.Quaternion(car.quaternion.x,car.quaternion.y,car.quaternion.z,car.quaternion.w);const fwd=new THREE.Vector3(0,0,1).applyQuaternion(q); const rightV=new THREE.Vector3(1,0,0).applyQuaternion(q);
+      const forwardSpeed=car.velocity.x*fwd.x+car.velocity.z*fwd.z; const sideSpeed=car.velocity.x*rightV.x+car.velocity.z*rightV.z;
+      const throttle=(forward?1:0)-(backward?1:0); const accel=boosting?48:27; if(throttle) {car.velocity.x+=fwd.x*throttle*accel*dt;car.velocity.z+=fwd.z*throttle*accel*dt;}
+      const maxSpeed=boosting?31:19; const speedNow=Math.hypot(car.velocity.x,car.velocity.z);if(speedNow>maxSpeed){car.velocity.x*=maxSpeed/speedNow;car.velocity.z*=maxSpeed/speedNow;}
+      if((left||right)&&Math.abs(forwardSpeed)>.8){const steer=((left?1:0)-(right?1:0))*Math.min(1.9,Math.abs(forwardSpeed)*.105)*(forwardSpeed<0?-1:1);const yaw=new THREE.Euler().setFromQuaternion(q,'YXZ').y+steer*dt;car.quaternion.setFromEuler(0,yaw,0);}
+      const drift=(keys.Space&&Math.abs(forwardSpeed)>5); const grip=drift?.985:.72; car.velocity.x-=rightV.x*sideSpeed*(1-grip);car.velocity.z-=rightV.z*sideSpeed*(1-grip); if(!throttle){car.velocity.x*=.985;car.velocity.z*=.985;}
+      if(boosting){boost-=26*dt;if(Math.random()<.75)spawnSpark();}
+      if(keys.Space&&!airborne&&car.position.y<1.05){car.velocity.y=7.2;airborne=true;} if(car.position.y<.98)airborne=false;
+    }
+    function updatePads(dt){for(const p of pads){if(!p.active){p.cool-=dt;if(p.cool<=0){p.active=true;p.mesh.material=padMatOn;}}else{const dx=car.position.x-p.x,dz=car.position.z-p.z;if(dx*dx+dz*dz<2.3){boost=Math.min(100,boost+28);p.active=false;p.cool=5;p.mesh.material=padMatOff;}}p.mesh.rotation.y+=dt*2;}}
+    function updateSparks(dt){for(let i=sparks.length-1;i>=0;i--){const s=sparks[i];s.life-=dt;s.m.position.addScaledVector(s.v,dt);s.v.y-=10*dt;s.m.scale.setScalar(Math.max(0,s.life*3));s.m.material.opacity=Math.max(0,s.life*3);s.m.material.transparent=true;if(s.life<=0){scene.remove(s.m);s.m.material.dispose();sparks.splice(i,1);}}}
+    function updateCamera(dt){const fwd=new THREE.Vector3(0,0,1).applyQuaternion(carMesh.quaternion);camGoal.copy(carMesh.position).add(new THREE.Vector3(0,6.8,0)).addScaledVector(fwd,-11.8);camera.position.lerp(camGoal,1-Math.pow(.0004,dt));lookGoal.copy(carMesh.position).addScaledVector(fwd,7).lerp(ballMesh.position,.28);camera.lookAt(lookGoal);}
+    function animate(){requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.05);if(!goalLock&&time>0)time-=dt; if(time<=0&&!goalLock){goalLock=true;notice.style.color='#ffd84a';notice.innerHTML=`MATCH COMPLETE<small>${blue===orange?'OVERTIME DRAW':(blue>orange?'BLUE':'ORANGE')+' TEAM WINS'}</small>`;notice.classList.add('show');}
+      updateCar(dt);world.step(1/60,dt,3);carMesh.position.copy(car.position);carMesh.quaternion.copy(car.quaternion);ballMesh.position.copy(ball.position);ballMesh.quaternion.copy(ball.quaternion);
+      if(!goalLock){if(ball.position.z>29.55&&ball.position.x>-4.45&&ball.position.x<4.45)score('BLUE');if(ball.position.z<-29.55&&ball.position.x>-4.45&&ball.position.x<4.45)score('ORANGE');}
+      updatePads(dt);updateSparks(dt);updateCamera(dt);updateHUD();renderer.render(scene,camera);
+    }
+    resetRound();animate();addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+  })();
+  </script>
+</body>
+</html>

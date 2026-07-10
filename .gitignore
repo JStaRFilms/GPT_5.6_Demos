@@ -28,6 +28,17 @@ coverage/
 .npm
 *.log
 
+# --- Generated showcase artifacts ---
+public/generated/
+src/generated/
+tsconfig.tsbuildinfo
+artifacts/
+.showcase-server.log
+
+# --- Local environment ---
+.env.*
+!.env.example
+
 # --- IDEs ---
 .vscode/
 .idea/

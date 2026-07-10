@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Needle & Groove — Vinyl Archive</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ['DM Sans', 'sans-serif'], display: ['Playfair Display', 'serif'], mono: ['DM Mono', 'monospace'] },
+            colors: { paper: '#e9e5dc', ink: '#171716', oat: '#d9d3c7', signal: '#ea5e37' },
+            boxShadow: { sleeve: '14px 18px 30px rgba(24, 23, 20, .18)', float: '0 24px 50px rgba(24, 23, 20, .22)' }
+          }
+        }
+      }
+    </script>
+    <style>
+      * { box-sizing: border-box; }
+      html { background: #e9e5dc; scroll-behavior: smooth; }
+      body { margin: 0; color: #171716; overflow-x: hidden; }
+      ::selection { background: #171716; color: #e9e5dc; }
+      .grain { position: fixed; inset: 0; pointer-events: none; opacity: .055; z-index: 50; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.75'/%3E%3C/svg%3E"); }
+      .vinyl { background: repeating-radial-gradient(circle at center, #111 0 2px, #191919 3px 5px, #101010 6px 8px); }
+      .vinyl::after { content: ''; position: absolute; inset: 8%; border-radius: 50%; background: radial-gradient(circle at 32% 25%, rgba(255,255,255,.27) 0 1px, transparent 9%), linear-gradient(115deg, transparent 36%, rgba(255,255,255,.20) 42%, transparent 47%); mix-blend-mode: screen; opacity: .7; }
+      .album-img { filter: saturate(.78) contrast(1.06); }
+      .hide-scrollbar::-webkit-scrollbar { display: none; }
+      .hide-scrollbar { scrollbar-width: none; }
+      .turntable-plinth { background: linear-gradient(135deg, #d5cfc4, #f1eee8 50%, #c9c2b5); }
+      .needle-arm { transform-origin: 12% 14%; }
+      .playing-ring { animation: pulse-ring 1.8s ease-in-out infinite; }
+      @keyframes pulse-ring { 50% { opacity: .25; transform: scale(1.035); } }
+      @keyframes slide-left { to { transform: translateX(-32px); } }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div class="grain"></div>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/framer-motion@11.11.17/dist/framer-motion.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="text/babel">
+      const { useState, useEffect, useRef } = React;
+      const { motion, AnimatePresence } = Motion;
+
+      const records = [
+        { id: 1, title: 'Soft Geometry', artist: 'Lumen Parks', year: '2024', genre: 'Ambient / Electronica', length: '42:18', color: '#be5c46', art: 'https://images.unsplash.com/photo-1516280440614-37939bbacd81?auto=format&fit=crop&w=800&q=85', track: 'Blue Hour' },
+        { id: 2, title: 'Lover’s Lake', artist: 'Nora Dais', year: '2025', genre: 'Indie Folk', length: '37:04', color: '#7597a4', art: 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=800&q=85', track: 'Waterline' },
+        { id: 3, title: 'Notes on Heat', artist: 'Milo Miro', year: '2023', genre: 'Soul / Jazz', length: '48:22', color: '#dfaa4d', art: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?auto=format&fit=crop&w=800&q=85', track: 'Sunday Signal' },
+        { id: 4, title: 'Night Service', artist: 'Daya', year: '2025', genre: 'Synth Pop', length: '39:16', color: '#4b443d', art: 'https://images.unsplash.com/photo-1519682337058-a94d519337bc?auto=format&fit=crop&w=800&q=85', track: 'Tramline' },
+        { id: 5, title: 'Canyon Choir', artist: 'The Fable', year: '2024', genre: 'Alt Country', length: '45:09', color: '#aca572', art: 'https://images.unsplash.com/photo-1506157786151-b8491531f063?auto=format&fit=crop&w=800&q=85', track: 'Wilderness' },
+        { id: 6, title: 'Aperture', artist: 'Hollis', year: '2025', genre: 'Modern Classical', length: '31:42', color: '#a7a3af', art: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=800&q=85', track: 'First Light' }
+      ];
+
+      function VinylDisc({ record, onDropped, isPlaying }) {
+        const [dragging, setDragging] = useState(false);
+        const release = (_, info) => {
+          setDragging(false);
+          const target = document.getElementById('turntable-dropzone');
+          if (!target) return;
+          const rect = target.getBoundingClientRect();
+          const x = info.point.x, y = info.point.y;
+          if (x > rect.left && x < rect.right && y > rect.top && y < rect.bottom) onDropped(record);
+        };
+        if (isPlaying) return <div className="absolute -right-4 top-4 h-[74%] aspect-square rounded-full bg-black/10" />;
+        return (
+          <motion.div
+            drag
+            dragSnapToOrigin
+            dragElastic={0.16}
+            onDragStart={() => setDragging(true)}
+            onDragEnd={release}
+            whileDrag={{ scale: 1.12, zIndex: 80, cursor: 'grabbing', boxShadow: '0 28px 50px rgba(0,0,0,.4)' }}
+            className={`vinyl absolute -right-[14%] top-[10%] aspect-square w-[91%] cursor-grab rounded-full shadow-2xl ${dragging ? 'z-50' : 'z-0'}`}
+            style={{ touchAction: 'none' }}
+            aria-label={`Drag ${record.title} record to turntable`}
+          >
+            <div className="absolute left-1/2 top-1/2 h-[35%] w-[35%] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: record.color }}>
+              <div className="absolute inset-[7%] rounded-full border border-black/20"></div>
+              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-mono text-[6px] uppercase tracking-[.14em] text-black/70">NG · 45</span>
+              <span className="absolute left-1/2 top-[62%] -translate-x-1/2 font-mono text-[5px] uppercase text-black/60">Side A</span>
+              <i className="absolute left-1/2 top-1/2 h-[10%] w-[10%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/40 bg-[#161616]"></i>
+            </div>
+          </motion.div>
+        );
+      }
+
+      function RecordCard({ record, onDropped, current }) {
+        const [hovered, setHovered] = useState(false);
+        return (
+          <motion.article
+            initial={{ opacity: 0, y: 22 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .6, delay: record.id * .07 }}
+            onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+            className="group relative h-[420px] w-[285px] shrink-0 cursor-default"
+          >
+            <motion.div animate={{ x: hovered ? -22 : 0, rotate: hovered ? -1.3 : 0 }} transition={{ type: 'spring', stiffness: 250, damping: 24 }} className="absolute inset-x-0 top-0 z-10 h-[350px] overflow-hidden bg-[#d4cec2] shadow-sleeve">
+              <img className="album-img h-full w-full object-cover" src={record.art} alt={`${record.title} album cover`} />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-white/10"></div>
+              <div className="absolute left-5 top-5 flex items-center gap-2 rounded-full border border-white/35 bg-black/10 px-3 py-1.5 text-[9px] font-medium uppercase tracking-[.17em] text-white backdrop-blur-sm">New press</div>
+              <div className="absolute bottom-5 left-5 right-5 text-white drop-shadow-md">
+                <p className="font-mono text-[9px] uppercase tracking-[.19em] opacity-80">{record.year} · {record.length}</p>
+                <h2 className="mt-1 font-display text-2xl leading-none">{record.title}</h2>
+                <p className="mt-1 text-xs">{record.artist}</p>
+              </div>
+            </motion.div>
+            <motion.div animate={{ x: hovered ? 38 : 0, rotate: hovered ? 8 : 0 }} transition={{ type: 'spring', stiffness: 210, damping: 23 }} className="absolute right-0 top-0 h-[350px] w-full">
+              <VinylDisc record={record} onDropped={onDropped} isPlaying={current?.id === record.id} />
+            </motion.div>
+            <motion.div animate={{ x: hovered ? -22 : 0 }} className="absolute bottom-0 left-0 z-20 flex w-[263px] items-start justify-between border-t border-ink/15 pt-3">
+              <div><p className="font-mono text-[9px] uppercase tracking-[.13em] text-ink/55">{record.genre}</p><p className="mt-1 text-sm font-medium">Limited 180g · €28</p></div>
+              <motion.div animate={{ opacity: hovered ? 1 : .35, x: hovered ? 0 : -4 }} className="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-ink text-xs text-paper">↗</motion.div>
+            </motion.div>
+          </motion.article>
+        );
+      }
+
+      function Turntable({ record, playing, setPlaying }) {
+        const [progress, setProgress] = useState(18);
+        useEffect(() => {
+          if (!playing) return;
+          const timer = setInterval(() => setProgress(p => p >= 100 ? 0 : p + .28), 120);
+          return () => clearInterval(timer);
+        }, [playing, record?.id]);
+        const displayed = record || records[0];
+        return (
+          <aside className="relative z-20 mx-auto w-full max-w-[430px] lg:mx-0">
+            <div id="turntable-dropzone" className="turntable-plinth relative aspect-[1.04/1] rounded-[8px] border border-black/10 p-5 shadow-float transition-shadow duration-500 hover:shadow-[0_30px_60px_rgba(25,24,20,.28)]">
+              <div className="absolute inset-2 rounded-[4px] border border-white/55"></div>
+              <div className="absolute left-1/2 top-1/2 h-[70%] aspect-square -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#282826] shadow-[inset_0_0_0_9px_#111,inset_0_0_0_10px_#565450,0_10px_20px_rgba(0,0,0,.25)]"></div>
+              <AnimatePresence mode="wait">
+                <motion.div key={displayed.id} initial={{ opacity: 0, scale: .6 }} animate={playing ? { opacity: 1, scale: 1, rotate: 360 } : { opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: .6 }} transition={playing ? { opacity: 1, scale: { duration: .45 }, rotate: { duration: 2.1, repeat: Infinity, ease: 'linear' } } : { duration: .4 }} className="vinyl absolute left-1/2 top-1/2 z-10 h-[65%] aspect-square -translate-x-1/2 -translate-y-1/2 rounded-full">
+                  <div className="absolute left-1/2 top-1/2 h-[37%] w-[37%] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: displayed.color }}><span className="absolute inset-0 flex items-center justify-center text-center font-mono text-[6px] uppercase tracking-[.14em] text-black/70">Needle<br />Groove</span><i className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#171716]"></i></div>
+                </motion.div>
+              </AnimatePresence>
+              {playing && <div className="playing-ring absolute left-1/2 top-1/2 z-0 h-[73%] aspect-square -translate-x-1/2 -translate-y-1/2 rounded-full border border-signal/50"></div>}
+              <motion.div animate={{ rotate: playing ? -8 + progress * .14 : -35 }} transition={{ type: 'spring', stiffness: 35, damping: 12 }} className="needle-arm absolute right-[4%] top-[9%] z-20 h-[54%] w-[11%] origin-top">
+                <div className="absolute left-1/2 top-0 h-6 w-6 -translate-x-1/2 rounded-full border-[5px] border-[#8b877f] bg-[#484743] shadow-md"></div>
+                <div className="absolute left-[47%] top-4 h-[82%] w-[5px] rounded-full bg-gradient-to-r from-[#74716b] via-[#f1eee7] to-[#77736e]"></div>
+                <div className="absolute bottom-0 left-[32%] h-5 w-5 rotate-[38deg] rounded-sm bg-[#2a2927] shadow"></div>
+              </motion.div>
+              <button onClick={() => setPlaying(!playing)} className="absolute bottom-5 right-5 z-30 flex h-9 w-9 items-center justify-center rounded-full bg-signal text-paper transition-transform hover:scale-105" aria-label={playing ? 'Pause record' : 'Play record'}>{playing ? 'Ⅱ' : '▶'}</button>
+              <div className="absolute bottom-5 left-5 z-20 font-mono text-[8px] uppercase tracking-[.18em] text-ink/60">33⅓ RPM</div>
+            </div>
+            <div className="mt-5 border-y border-ink/15 py-4">
+              <div className="flex items-start justify-between"><div><p className="font-mono text-[9px] uppercase tracking-[.15em] text-ink/50">Now on the deck</p><h3 className="mt-1 font-display text-xl">{displayed.track}</h3><p className="text-sm text-ink/65">{displayed.artist} — {displayed.title}</p></div><span className={`mt-2 h-2 w-2 rounded-full ${playing ? 'bg-signal' : 'bg-ink/20'}`}></span></div>
+              <div className="mt-4 h-px bg-ink/15"><motion.div animate={{ width: `${playing ? progress : 18}%` }} className="h-full bg-ink" /></div>
+              <div className="mt-2 flex justify-between font-mono text-[9px] text-ink/45"><span>0{Math.floor(progress / 100 * 3)}:{String(Math.floor(progress / 100 * 59)).padStart(2, '0')}</span><span>03:44</span></div>
+            </div>
+          </aside>
+        );
+      }
+
+      function App() {
+        const [current, setCurrent] = useState(records[0]);
+        const [playing, setPlaying] = useState(false);
+        const onDropped = record => { setCurrent(record); setPlaying(true); };
+        return (
+          <main className="min-h-screen bg-paper px-5 pb-12 pt-5 sm:px-8 lg:px-12">
+            <nav className="mx-auto flex max-w-[1550px] items-center justify-between border-b border-ink/15 pb-5">
+              <a href="#" className="font-display text-[21px] tracking-[-.05em]">Needle <i className="text-signal">&</i> Groove</a>
+              <div className="hidden items-center gap-9 font-mono text-[10px] uppercase tracking-[.13em] text-ink/65 md:flex"><a href="#collection" className="transition-colors hover:text-signal">The collection</a><a href="#journal" className="transition-colors hover:text-signal">Journal</a><a href="#about" className="transition-colors hover:text-signal">Our room</a></div>
+              <button className="group flex items-center gap-3 font-mono text-[10px] uppercase tracking-[.12em]"><span className="hidden sm:block">Your crate</span><span className="flex h-7 w-7 items-center justify-center rounded-full bg-ink text-[9px] text-paper">02</span></button>
+            </nav>
+
+            <section className="mx-auto grid max-w-[1550px] items-end gap-7 pb-10 pt-14 lg:grid-cols-[1fr_auto] lg:pb-14 lg:pt-20">
+              <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .7 }}>
+                <div className="mb-5 flex items-center gap-3 font-mono text-[10px] uppercase tracking-[.17em] text-ink/55"><span className="h-px w-8 bg-signal"></span> Curated records · Summer 2025</div>
+                <h1 className="max-w-4xl font-display text-[clamp(3.6rem,8vw,8.8rem)] leading-[.83] tracking-[-.065em]">For the <i className="font-normal">well<br />listened.</i></h1>
+              </motion.div>
+              <motion.p initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: .2, duration: .7 }} className="max-w-[310px] border-l border-ink/25 pl-4 text-sm leading-relaxed text-ink/70">Thoughtfully pressed records for a slower kind of listening. Select a sleeve, pull the wax.</motion.p>
+            </section>
+
+            <section id="collection" className="mx-auto max-w-[1550px] border-t border-ink/15 pt-5">
+              <div className="flex items-center justify-between"><div className="flex items-center gap-4"><h2 className="font-display text-2xl tracking-[-.04em]">New arrivals</h2><span className="rounded-full border border-ink/20 px-2 py-1 font-mono text-[8px] uppercase tracking-[.14em]">18 records</span></div><p className="hidden font-mono text-[9px] uppercase tracking-[.15em] text-ink/45 sm:block">Hover to reveal · Drag to play</p></div>
+              <div className="mt-7 grid gap-10 xl:grid-cols-[minmax(0,1fr)_430px] xl:gap-12">
+                <div className="hide-scrollbar -mr-5 flex gap-7 overflow-x-auto pb-4 pr-5 sm:-mr-8 sm:pr-8 lg:-mr-12 lg:pr-12">
+                  {records.map(record => <RecordCard key={record.id} record={record} onDropped={onDropped} current={current} />)}
+                </div>
+                <Turntable record={current} playing={playing} setPlaying={setPlaying} />
+              </div>
+              <div className="mt-3 flex items-center justify-between border-t border-ink/15 pt-4 font-mono text-[9px] uppercase tracking-[.14em] text-ink/50"><span>Scroll for more / 06</span><span>Records travel better in the hands.</span></div>
+            </section>
+
+            <footer id="journal" className="mx-auto mt-24 flex max-w-[1550px] flex-col justify-between gap-4 border-t border-ink/15 pt-5 font-mono text-[9px] uppercase tracking-[.13em] text-ink/45 sm:flex-row"><span>Independent record room · Amsterdam / Worldwide</span><span>© 2025 Needle & Groove</span></footer>
+          </main>
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+  </body>
+</html>

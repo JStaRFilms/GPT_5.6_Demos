@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#050709">
+  <title>Nocturne 88 — Classical Piano in Light</title>
+  <style>
+    :root {
+      --ink: #f4f2ed;
+      --muted: #8f969c;
+      --dim: #596067;
+      --night: #050709;
+      --panel: rgba(12, 15, 18, 0.72);
+      --line: rgba(255, 255, 255, 0.1);
+      --blue: #39bfff;
+      --blue-soft: #91ddff;
+      --green: #45f6b1;
+      --green-soft: #a2ffda;
+      --piano-height: clamp(132px, 18vh, 184px);
+      --ui-font: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --display-font: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--night);
+      color: var(--ink);
+      font-family: var(--ui-font);
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 50% 28%, rgba(25, 40, 47, 0.4), transparent 42%),
+        linear-gradient(180deg, #080b0e 0%, #040607 72%);
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .app {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      isolation: isolate;
+      overflow: hidden;
+    }
+
+    #visualizer {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .atmosphere {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(180deg, transparent 0%, rgba(1,3,4,0.12) 55%, rgba(1,3,4,0.65) 100%);
+      background-size: 7.5vw 100%, 100% 100%;
+      mask-image: linear-gradient(to bottom, black, transparent 84%);
+    }
+
+    .grain {
+      position: absolute;
+      inset: -40%;
+      z-index: 2;
+      opacity: 0.035;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.9'/%3E%3C/svg%3E");
+      animation: grain 0.26s steps(2) infinite;
+    }
+
+    @keyframes grain {
+      0% { transform: translate(1%, -1%); }
+      50% { transform: translate(-1%, 1%); }
+      100% { transform: translate(0, 0); }
+    }
+
+    .topbar {
+      position: absolute;
+      z-index: 10;
+      top: max(18px, env(safe-area-inset-top));
+      left: clamp(18px, 3vw, 48px);
+      right: clamp(18px, 3vw, 48px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      pointer-events: none;
+    }
+
+    .brand, .controls { pointer-events: auto; }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 35px;
+      height: 35px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 50%;
+      background: rgba(255,255,255,0.035);
+      box-shadow: inset 0 0 18px rgba(255,255,255,0.025);
+    }
+
+    .brand-mark svg { width: 17px; height: 17px; }
+
+    .brand-name {
+      font-size: 11px;
+      line-height: 1;
+      letter-spacing: 0.25em;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .brand-sub {
+      margin-top: 6px;
+      color: var(--muted);
+      font-family: var(--display-font);
+      font-size: 12px;
+      font-style: italic;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(9, 12, 14, 0.68);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.035);
+      backdrop-filter: blur(18px);
+    }
+
+    .icon-button, .transport-button {
+      height: 34px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 180ms ease, background-color 180ms ease, box-shadow 180ms ease;
+    }
+
+    .icon-button {
+      width: 34px;
+      color: #a9afb4;
+    }
+
+    .icon-button:hover, .icon-button:focus-visible {
+      color: white;
+      background: rgba(255,255,255,0.08);
+    }
+
+    .icon-button svg, .transport-button svg { width: 16px; height: 16px; }
+
+    .transport-button {
+      gap: 8px;
+      min-width: 94px;
+      padding: 0 14px;
+      color: #07120e;
+      background: #e8fff6;
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      box-shadow: 0 0 0 1px rgba(125,255,205,0.16), 0 0 24px rgba(69,246,177,0.12);
+    }
+
+    .transport-button:hover { background: white; box-shadow: 0 0 28px rgba(69,246,177,0.25); }
+
+    button:focus-visible, input:focus-visible {
+      outline: 2px solid var(--blue-soft);
+      outline-offset: 3px;
+    }
+
+    .volume-wrap {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .volume-slider {
+      width: 64px;
+      height: 3px;
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #dce7e2 0 72%, rgba(255,255,255,0.16) 72% 100%);
+      cursor: pointer;
+    }
+
+    .volume-slider::-webkit-slider-thumb {
+      width: 11px;
+      height: 11px;
+      appearance: none;
+      border: 2px solid #0b0f11;
+      border-radius: 50%;
+      background: white;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.3);
+    }
+
+    .intro {
+      position: absolute;
+      z-index: 6;
+      top: 46%;
+      left: 50%;
+      width: min(660px, calc(100vw - 40px));
+      transform: translate(-50%, -50%);
+      text-align: center;
+      transition: opacity 900ms ease, transform 900ms cubic-bezier(.2,.7,.2,1), visibility 900ms;
+    }
+
+    .intro.is-hidden {
+      opacity: 0;
+      visibility: hidden;
+      transform: translate(-50%, calc(-50% - 18px));
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      margin: 0 0 18px;
+      color: #a9b1b5;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: var(--display-font);
+      font-size: clamp(54px, 8.2vw, 116px);
+      font-weight: 400;
+      line-height: 0.82;
+      letter-spacing: -0.055em;
+      text-shadow: 0 4px 40px rgba(255,255,255,0.07);
+    }
+
+    h1 em {
+      color: #a4abb0;
+      font-weight: 400;
+    }
+
+    .subtitle {
+      max-width: 470px;
+      margin: 25px auto 0;
+      color: #9ba2a7;
+      font-family: var(--display-font);
+      font-size: clamp(15px, 1.6vw, 19px);
+      line-height: 1.6;
+      letter-spacing: 0.015em;
+    }
+
+    .begin-button {
+      margin-top: 30px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .begin-disc {
+      position: relative;
+      width: 62px;
+      height: 62px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 50%;
+      color: white;
+      background: rgba(255,255,255,0.04);
+      box-shadow: 0 0 0 8px rgba(255,255,255,0.018), 0 0 45px rgba(57,191,255,0.08);
+      transition: background-color 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+    }
+
+    .begin-disc::after {
+      content: "";
+      position: absolute;
+      inset: -9px;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: inherit;
+    }
+
+    .begin-button:hover .begin-disc {
+      border-color: rgba(255,255,255,0.5);
+      background: rgba(255,255,255,0.1);
+      box-shadow: 0 0 0 8px rgba(255,255,255,0.03), 0 0 50px rgba(69,246,177,0.16);
+    }
+
+    .begin-disc svg { width: 18px; height: 18px; margin-left: 3px; }
+
+    .begin-label {
+      color: #c7cccf;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+    }
+
+    .headphones {
+      margin-top: 19px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: #6e767c;
+      font-size: 10px;
+      letter-spacing: 0.06em;
+    }
+
+    .headphones svg { width: 13px; height: 13px; }
+
+    .performance-meta {
+      position: absolute;
+      z-index: 8;
+      left: clamp(18px, 3vw, 48px);
+      right: clamp(18px, 3vw, 48px);
+      bottom: calc(var(--piano-height) + 18px);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 20px;
+      pointer-events: none;
+    }
+
+    .piece-info {
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 700ms ease 300ms, transform 700ms ease 300ms;
+    }
+
+    .is-performing .piece-info { opacity: 1; transform: translateY(0); }
+
+    .piece-number {
+      margin-bottom: 6px;
+      color: #687077;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+    }
+
+    .piece-title {
+      font-family: var(--display-font);
+      font-size: clamp(15px, 1.5vw, 20px);
+      font-style: italic;
+    }
+
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 8px 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 999px;
+      color: #878f94;
+      background: rgba(5,7,9,0.5);
+      backdrop-filter: blur(12px);
+      font-size: 8px;
+      font-weight: 650;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 7px; }
+    .legend-dot { width: 5px; height: 5px; border-radius: 50%; }
+    .legend-dot.green { background: var(--green); box-shadow: 0 0 10px var(--green); }
+    .legend-dot.blue { background: var(--blue); box-shadow: 0 0 10px var(--blue); }
+
+    .piano-wrap {
+      position: absolute;
+      z-index: 7;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: var(--piano-height);
+      padding-top: 9px;
+      background: linear-gradient(180deg, rgba(8,10,11,0.6), #030405 16px);
+      box-shadow: 0 -18px 60px rgba(0,0,0,0.45);
+    }
+
+    .piano-wrap::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3) 50%, transparent);
+      box-shadow: 0 0 15px rgba(255,255,255,0.08);
+    }
+
+    .keyboard {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      user-select: none;
+      touch-action: none;
+      background: #050607;
+      border-top: 1px solid #24282a;
+    }
+
+    .key {
+      position: absolute;
+      top: 0;
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+      transform-origin: top center;
+      transition: transform 65ms ease-out, filter 80ms ease, background-color 80ms ease, box-shadow 80ms ease;
+    }
+
+    .key.white {
+      z-index: 1;
+      height: calc(100% - 2px);
+      border-right: 1px solid #9a9b98;
+      border-bottom: 5px solid #b9bab7;
+      border-radius: 0 0 3px 3px;
+      background: linear-gradient(90deg, #d7d7d3 0%, #faf9f4 15%, #f8f7f2 80%, #d1d2cf 100%);
+      box-shadow: inset 0 -12px 18px rgba(0,0,0,0.06);
+    }
+
+    .key.white:hover { background: linear-gradient(90deg, #e5e5df, #fff 20%, #fff 78%, #ddddda); }
+
+    .key.black {
+      z-index: 2;
+      height: 61%;
+      border-radius: 0 0 3px 3px;
+      background: linear-gradient(90deg, #060708 0%, #1e2224 22%, #090b0c 75%, #020303 100%);
+      border: 1px solid #050606;
+      border-bottom: 7px solid #010202;
+      box-shadow: 0 6px 8px rgba(0,0,0,0.65), inset 0 -2px 1px rgba(255,255,255,0.08);
+    }
+
+    .key.black:hover { background: linear-gradient(90deg, #080a0b, #2b3032 22%, #101314 75%, #030404); }
+
+    .key.active {
+      transform: translateY(8px) rotateX(-1deg);
+      transition-duration: 32ms;
+    }
+
+    .key.white.active.left {
+      background: linear-gradient(180deg, #effff8, #c3f9e3);
+      box-shadow: inset 0 0 24px rgba(69,246,177,0.58), 0 -8px 30px rgba(69,246,177,0.52);
+      filter: brightness(1.08);
+    }
+
+    .key.white.active.right {
+      background: linear-gradient(180deg, #f2fbff, #c5eaff);
+      box-shadow: inset 0 0 24px rgba(57,191,255,0.62), 0 -8px 30px rgba(57,191,255,0.56);
+      filter: brightness(1.08);
+    }
+
+    .key.black.active.left {
+      background: linear-gradient(180deg, #173f34, #07120f);
+      box-shadow: 0 6px 8px rgba(0,0,0,0.6), 0 -6px 30px rgba(69,246,177,0.72), inset 0 0 12px rgba(69,246,177,0.52);
+    }
+
+    .key.black.active.right {
+      background: linear-gradient(180deg, #15384b, #061017);
+      box-shadow: 0 6px 8px rgba(0,0,0,0.6), 0 -6px 30px rgba(57,191,255,0.8), inset 0 0 12px rgba(57,191,255,0.58);
+    }
+
+    .key-label {
+      position: absolute;
+      left: 50%;
+      bottom: 9px;
+      transform: translateX(-50%);
+      color: rgba(15,18,19,0.38);
+      font-size: clamp(6px, 0.55vw, 9px);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .audio-unavailable {
+      position: fixed;
+      z-index: 30;
+      left: 50%;
+      bottom: calc(var(--piano-height) + 30px);
+      transform: translateX(-50%);
+      max-width: calc(100vw - 36px);
+      padding: 12px 18px;
+      border: 1px solid rgba(255,120,120,0.3);
+      border-radius: 10px;
+      color: #ffd8d8;
+      background: rgba(40,10,12,0.92);
+      font-size: 12px;
+    }
+
+    @media (max-width: 720px) {
+      :root { --piano-height: clamp(116px, 17vh, 146px); }
+      .topbar { align-items: flex-start; gap: 10px; }
+      .brand { gap: 8px; }
+      .brand-mark { width: 32px; height: 32px; }
+      .brand-name { font-size: 9.5px; letter-spacing: 0.18em; }
+      .brand-sub { display: none; }
+      .controls { gap: 2px; padding: 4px; }
+      .volume-slider { display: none; }
+      .transport-button { min-width: 42px; width: 42px; padding: 0; }
+      .transport-label { display: none; }
+      .intro { top: 43%; width: calc(100vw - 28px); }
+      h1 { font-size: clamp(42px, 13vw, 58px); letter-spacing: -0.065em; white-space: nowrap; }
+      .subtitle { max-width: 330px; padding: 0 4px; font-size: 15px; }
+      .performance-meta { bottom: calc(var(--piano-height) + 12px); }
+      .piece-number { display: none; }
+      .legend { gap: 10px; padding: 7px 9px; }
+      .legend-item span:last-child { display: none; }
+      .key-label { display: none; }
+    }
+
+    @media (max-width: 420px) {
+      .topbar { top: max(12px, env(safe-area-inset-top)); left: 12px; right: 12px; }
+      .brand-name { font-size: 9px; letter-spacing: 0.14em; }
+      .icon-button { width: 32px; }
+      .transport-button { min-width: 38px; width: 38px; }
+      .intro { top: 42.5%; }
+      h1 { font-size: 12.5vw; }
+      .subtitle { max-width: 310px; }
+    }
+
+    @media (max-height: 620px) {
+      :root { --piano-height: 112px; }
+      .intro { top: 41%; }
+      .subtitle { margin-top: 14px; }
+      .begin-button { margin-top: 18px; }
+      .headphones { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .grain { animation: none; }
+      .intro, .piece-info, .key { transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" id="app">
+    <canvas id="visualizer" aria-hidden="true"></canvas>
+    <div class="atmosphere" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <div class="brand" aria-label="Nocturne 88">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+            <path d="M3 12h2.2l1.5-5 2.1 10 2-13 2.2 16 2.2-12 1.7 7H21"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-name">NOCTURNE 88</div>
+          <div class="brand-sub">Piano rendered in light</div>
+        </div>
+      </div>
+
+      <div class="controls" aria-label="Performance controls">
+        <div class="volume-wrap">
+          <button class="icon-button" id="muteButton" type="button" aria-label="Mute audio" aria-pressed="false">
+            <svg id="volumeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M11 5 6.5 9H3v6h3.5l4.5 4V5Z"/><path d="M15 9.5a4 4 0 0 1 0 5"/><path d="M17.8 6.8a7.5 7.5 0 0 1 0 10.4"/>
+            </svg>
+          </button>
+          <label class="sr-only" for="volumeSlider">Master volume</label>
+          <input class="volume-slider" id="volumeSlider" type="range" min="0" max="1" value="0.72" step="0.01">
+        </div>
+        <button class="icon-button" id="fullscreenButton" type="button" aria-label="Enter fullscreen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+            <path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5"/>
+          </svg>
+        </button>
+        <button class="transport-button" id="transportButton" type="button" aria-label="Begin performance">
+          <svg class="transport-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg>
+          <span class="transport-label">Begin</span>
+        </button>
+      </div>
+    </header>
+
+    <section class="intro" id="intro" aria-labelledby="title">
+      <p class="eyebrow">An audiovisual étude in A minor</p>
+      <h1 id="title">Nocturne <em>/</em> 88</h1>
+      <p class="subtitle">A composed passage for piano, particles, and falling light — performed live in your browser.</p>
+      <button class="begin-button" id="beginButton" type="button" aria-label="Begin the performance">
+        <span class="begin-disc">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg>
+        </span>
+        <span class="begin-label">Begin performance</span>
+      </button>
+      <div class="headphones">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M4 14h3v6H5a1 1 0 0 1-1-1v-5Zm16 0h-3v6h2a1 1 0 0 0 1-1v-5Z"/></svg>
+        <span>Headphones recommended</span>
+      </div>
+    </section>
+
+    <div class="performance-meta">
+      <div class="piece-info">
+        <div class="piece-number" id="loopCounter">Studio Op. 1 · Prelude</div>
+        <div class="piece-title">Nocturne in A minor · Andante, 76 BPM</div>
+      </div>
+      <div class="legend" aria-label="Visualizer color legend">
+        <div class="legend-item"><span class="legend-dot green"></span><span>Left hand</span></div>
+        <div class="legend-item"><span class="legend-dot blue"></span><span>Right hand</span></div>
+      </div>
+    </div>
+
+    <div class="piano-wrap" id="pianoWrap">
+      <div class="keyboard" id="keyboard" role="group" aria-label="Interactive 88-key piano keyboard"></div>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const MIDI_MIN = 21;
+      const MIDI_MAX = 108;
+      const BPM = 76;
+      const BEAT_SECONDS = 60 / BPM;
+      const LOOP_BEATS = 32;
+      const TRAVEL_SECONDS = 3.05;
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const blackPitchClasses = new Set([1, 3, 6, 8, 10]);
+      const noteNames = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+
+      const app = document.getElementById("app");
+      const intro = document.getElementById("intro");
+      const beginButton = document.getElementById("beginButton");
+      const transportButton = document.getElementById("transportButton");
+      const transportLabel = transportButton.querySelector(".transport-label");
+      const transportIcon = transportButton.querySelector(".transport-icon");
+      const muteButton = document.getElementById("muteButton");
+      const volumeSlider = document.getElementById("volumeSlider");
+      const fullscreenButton = document.getElementById("fullscreenButton");
+      const keyboard = document.getElementById("keyboard");
+      const pianoWrap = document.getElementById("pianoWrap");
+      const loopCounter = document.getElementById("loopCounter");
+      const canvas = document.getElementById("visualizer");
+      const ctx = canvas.getContext("2d");
+
+      const keys = new Map();
+      const keyGeometry = new Map();
+      const keyActiveUntil = new Map();
+      const particles = [];
+      let notesInFlight = [];
+      let audio = null;
+      let playing = false;
+      let started = false;
+      let timelineStart = 0;
+      let streamIndex = 0;
+      let streamLoop = 0;
+      let lastFrame = performance.now();
+      let lastVolume = Number(volumeSlider.value);
+      let width = 0;
+      let height = 0;
+      let dpr = 1;
+      let hitLineY = 0;
+
+      const sequence = [];
+      const add = (beat, midi, duration, velocity, hand) => sequence.push({ beat, midi, duration, velocity, hand });
+
+      const harmony = [
+        { root: 45, tones: [52, 57, 60] },
+        { root: 41, tones: [48, 53, 57] },
+        { root: 36, tones: [48, 52, 55] },
+        { root: 40, tones: [47, 52, 56] },
+        { root: 45, tones: [52, 57, 60] },
+        { root: 38, tones: [45, 50, 53] },
+        { root: 41, tones: [48, 53, 57] },
+        { root: 40, tones: [47, 52, 56] }
+      ];
+
+      harmony.forEach((chord, bar) => {
+        const b = bar * 4;
+        add(b, chord.root, 3.55, 0.56, "left");
+        add(b, chord.tones[0], 0.82, 0.36, "left");
+        add(b + 1, chord.tones[1], 0.82, 0.33, "left");
+        add(b + 2, chord.tones[2], 0.82, 0.38, "left");
+        add(b + 3, chord.tones[1], 0.82, 0.32, "left");
+        if (bar === 3 || bar === 7) add(b + 2, chord.root + 12, 1.65, 0.3, "left");
+      });
+
+      [
+        [0,76,1.0,.72],[1,72,.5,.62],[1.5,71,.5,.58],[2,69,1.4,.68],[3.5,72,.5,.57],
+        [4,76,1.45,.74],[5.5,74,.5,.6],[6,72,1,.67],[7,71,1,.61],
+        [8,69,.5,.57],[8.5,72,.5,.61],[9,77,1.45,.76],[10.5,76,.5,.63],[11,72,1,.65],
+        [12,71,.5,.6],[12.5,76,1.45,.72],[14,80,1,.78],[15,83,1,.74],
+        [16,81,1.5,.78],[17.5,79,.5,.63],[18,76,1,.69],[19,72,1,.62],
+        [20,74,.75,.64],[20.75,77,.75,.68],[21.5,81,1.5,.78],[23,79,1,.66],
+        [24,77,1,.7],[25,76,.5,.61],[25.5,74,.5,.59],[26,72,1.5,.68],[27.5,69,.5,.57],
+        [28,71,.5,.62],[28.5,76,.75,.7],[29.25,80,.75,.75],[30,83,1,.8],[31,80,.5,.62],[31.5,76,.5,.58]
+      ].forEach(([beat, midi, duration, velocity]) => add(beat, midi, duration, velocity, "right"));
+
+      sequence.sort((a, b) => a.beat - b.beat || a.midi - b.midi);
+
+      function midiName(midi) {
+        const octave = Math.floor(midi / 12) - 1;
+        return `${noteNames[midi % 12]}${octave}`;
+      }
+
+      function isBlack(midi) {
+        return blackPitchClasses.has(midi % 12);
+      }
+
+      function buildKeyboard() {
+        let whiteCount = 0;
+        for (let midi = MIDI_MIN; midi <= MIDI_MAX; midi++) {
+          if (!isBlack(midi)) whiteCount++;
+        }
+
+        const whiteWidth = 100 / whiteCount;
+        const blackWidth = whiteWidth * 0.62;
+        let whitesBefore = 0;
+
+        for (let midi = MIDI_MIN; midi <= MIDI_MAX; midi++) {
+          const black = isBlack(midi);
+          const key = document.createElement("button");
+          key.type = "button";
+          key.className = `key ${black ? "black" : "white"}`;
+          key.dataset.midi = String(midi);
+          key.setAttribute("aria-label", `${midiName(midi)} piano key`);
+
+          if (black) {
+            key.style.width = `${blackWidth}%`;
+            key.style.left = `${whitesBefore * whiteWidth - blackWidth / 2}%`;
+          } else {
+            key.style.width = `${whiteWidth}%`;
+            key.style.left = `${whitesBefore * whiteWidth}%`;
+            if (midi === 21 || midi === 24 || midi === 60 || midi === 108) {
+              const label = document.createElement("span");
+              label.className = "key-label";
+              label.textContent = midiName(midi);
+              key.appendChild(label);
+            }
+            whitesBefore++;
+          }
+
+          key.addEventListener("pointerdown", event => {
+            event.preventDefault();
+            playManualNote(midi);
+          });
+          keyboard.appendChild(key);
+          keys.set(midi, key);
+        }
+      }
+
+      function resize() {
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        hitLineY = pianoWrap.getBoundingClientRect().top + 1;
+
+        const canvasRect = canvas.getBoundingClientRect();
+        keyGeometry.clear();
+        keys.forEach((key, midi) => {
+          const rect = key.getBoundingClientRect();
+          keyGeometry.set(midi, {
+            x: rect.left - canvasRect.left + rect.width / 2,
+            width: rect.width,
+            black: isBlack(midi)
+          });
+        });
+      }
+
+      class PianoEngine {
+        constructor() {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContext) throw new Error("Web Audio is not supported in this browser.");
+          this.context = new AudioContext({ latencyHint: "interactive", sampleRate: 48000 });
+          this.master = this.context.createGain();
+          this.dry = this.context.createGain();
+          this.wet = this.context.createGain();
+          this.compressor = this.context.createDynamicsCompressor();
+          this.convolver = this.context.createConvolver();
+
+          this.master.gain.value = Number(volumeSlider.value) * 0.72;
+          this.dry.gain.value = 0.92;
+          this.wet.gain.value = 0.2;
+          this.compressor.threshold.value = -18;
+          this.compressor.knee.value = 18;
+          this.compressor.ratio.value = 3.2;
+          this.compressor.attack.value = 0.003;
+          this.compressor.release.value = 0.28;
+          this.convolver.buffer = this.createRoomImpulse(2.8, 2.55);
+
+          this.dry.connect(this.compressor);
+          this.convolver.connect(this.wet);
+          this.wet.connect(this.compressor);
+          this.compressor.connect(this.master);
+          this.master.connect(this.context.destination);
+          this.noiseBuffer = this.createNoiseBuffer();
+        }
+
+        createRoomImpulse(seconds, decay) {
+          const rate = this.context.sampleRate;
+          const length = Math.floor(rate * seconds);
+          const impulse = this.context.createBuffer(2, length, rate);
+          for (let channel = 0; channel < 2; channel++) {
+            const data = impulse.getChannelData(channel);
+            for (let i = 0; i < length; i++) {
+              const envelope = Math.pow(1 - i / length, decay);
+              const early = i === Math.floor(rate * (0.021 + channel * 0.004)) ? 0.55 : 0;
+              data[i] = ((Math.random() * 2 - 1) * envelope * 0.42) + early;
+            }
+          }
+          return impulse;
+        }
+
+        createNoiseBuffer() {
+          const length = Math.floor(this.context.sampleRate * 0.055);
+          const buffer = this.context.createBuffer(1, length, this.context.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+          return buffer;
+        }
+
+        setVolume(value) {
+          const now = this.context.currentTime;
+          this.master.gain.cancelScheduledValues(now);
+          this.master.gain.setTargetAtTime(value * 0.72, now, 0.025);
+        }
+
+        play(midi, when, duration = 1, velocity = 0.65, hand = "right") {
+          const now = this.context.currentTime;
+          when = Math.max(when, now + 0.003);
+          const frequency = 440 * Math.pow(2, (midi - 69) / 12);
+          const voice = this.context.createGain();
+          const body = this.context.createBiquadFilter();
+          const pan = this.context.createStereoPanner();
+          const send = this.context.createGain();
+          const lowKeyBoost = Math.max(0, (60 - midi) / 50);
+
+          body.type = "lowpass";
+          body.frequency.setValueAtTime(Math.min(9200, 2700 + frequency * 4.6), when);
+          body.Q.value = 0.7;
+          pan.pan.value = Math.max(-0.72, Math.min(0.72, (midi - 64) / 50));
+          send.gain.value = hand === "left" ? 0.24 : 0.29;
+
+          voice.gain.setValueAtTime(0.0001, when);
+          voice.gain.exponentialRampToValueAtTime(Math.max(0.001, velocity * 0.48), when + 0.007);
+          voice.gain.exponentialRampToValueAtTime(Math.max(0.001, velocity * 0.23), when + 0.13);
+          voice.gain.exponentialRampToValueAtTime(Math.max(0.001, velocity * (0.065 + lowKeyBoost * 0.025)), when + duration);
+          voice.gain.exponentialRampToValueAtTime(0.0001, when + duration + 1.45);
+
+          voice.connect(body);
+          body.connect(pan);
+          pan.connect(this.dry);
+          pan.connect(send);
+          send.connect(this.convolver);
+
+          const partials = [
+            [1, 1], [2.0026, 0.31], [3.008, 0.13], [4.018, 0.055], [5.036, 0.022]
+          ];
+
+          partials.forEach(([ratio, amount], index) => {
+            const oscillator = this.context.createOscillator();
+            const partialGain = this.context.createGain();
+            oscillator.type = "sine";
+            oscillator.frequency.value = frequency * ratio;
+            oscillator.detune.value = index === 0 ? -1.5 : index * 0.75;
+            partialGain.gain.value = amount * (index === 0 ? 1 : Math.max(0.42, 1 - midi / 160));
+            oscillator.connect(partialGain);
+            partialGain.connect(voice);
+            oscillator.start(when);
+            oscillator.stop(when + duration + 1.5);
+          });
+
+          const hammer = this.context.createBufferSource();
+          const hammerFilter = this.context.createBiquadFilter();
+          const hammerGain = this.context.createGain();
+          hammer.buffer = this.noiseBuffer;
+          hammerFilter.type = "bandpass";
+          hammerFilter.frequency.value = Math.min(6500, 1450 + frequency * 2.2);
+          hammerFilter.Q.value = 0.85;
+          hammerGain.gain.setValueAtTime(velocity * 0.11, when);
+          hammerGain.gain.exponentialRampToValueAtTime(0.0001, when + 0.045);
+          hammer.connect(hammerFilter);
+          hammerFilter.connect(hammerGain);
+          hammerGain.connect(body);
+          hammer.start(when);
+          hammer.stop(when + 0.06);
+        }
+      }
+
+      async function ensureAudio() {
+        try {
+          if (!audio) audio = new PianoEngine();
+          if (audio.context.state === "suspended") await audio.context.resume();
+          return true;
+        } catch (error) {
+          console.error(error);
+          if (!document.querySelector(".audio-unavailable")) {
+            const message = document.createElement("div");
+            message.className = "audio-unavailable";
+            message.textContent = "This performance needs a browser with Web Audio support.";
+            document.body.appendChild(message);
+          }
+          return false;
+        }
+      }
+
+      async function startPerformance() {
+        if (!(await ensureAudio())) return;
+        if (started && !playing) {
+          await audio.context.resume();
+          playing = true;
+          updateTransport();
+          return;
+        }
+        if (started) return;
+
+        started = true;
+        playing = true;
+        timelineStart = audio.context.currentTime + TRAVEL_SECONDS;
+        streamIndex = 0;
+        streamLoop = 0;
+        notesInFlight = [];
+        intro.classList.add("is-hidden");
+        app.classList.add("is-performing");
+        updateTransport();
+        fillNoteStream(audio.context.currentTime + TRAVEL_SECONDS + 1);
+      }
+
+      async function toggleTransport() {
+        if (!started) {
+          await startPerformance();
+          return;
+        }
+        if (playing) {
+          await audio.context.suspend();
+          playing = false;
+        } else {
+          await audio.context.resume();
+          playing = true;
+        }
+        updateTransport();
+      }
+
+      function updateTransport() {
+        transportLabel.textContent = playing ? "Pause" : (started ? "Resume" : "Begin");
+        transportButton.setAttribute("aria-label", playing ? "Pause performance" : (started ? "Resume performance" : "Begin performance"));
+        transportIcon.innerHTML = playing
+          ? '<path d="M7 5h4v14H7V5Zm6 0h4v14h-4V5Z"/>'
+          : '<path d="m8 5 11 7-11 7V5Z"/>';
+      }
+
+      function nextStreamEvent() {
+        const event = sequence[streamIndex];
+        const absoluteBeat = streamLoop * LOOP_BEATS + event.beat;
+        const note = {
+          ...event,
+          hitTime: timelineStart + absoluteBeat * BEAT_SECONDS,
+          durationSeconds: event.duration * BEAT_SECONDS,
+          scheduled: false,
+          hit: false
+        };
+        streamIndex++;
+        if (streamIndex >= sequence.length) {
+          streamIndex = 0;
+          streamLoop++;
+        }
+        return note;
+      }
+
+      function peekStreamTime() {
+        const event = sequence[streamIndex];
+        const absoluteBeat = streamLoop * LOOP_BEATS + event.beat;
+        return timelineStart + absoluteBeat * BEAT_SECONDS;
+      }
+
+      function fillNoteStream(maxTime) {
+        if (!started) return;
+        while (peekStreamTime() <= maxTime) notesInFlight.push(nextStreamEvent());
+      }
+
+      function activateKey(midi, hand, until) {
+        const key = keys.get(midi);
+        if (!key) return;
+        const existing = keyActiveUntil.get(midi);
+        if (!existing || until > existing.until) keyActiveUntil.set(midi, { until, hand });
+        key.classList.remove("left", "right");
+        key.classList.add("active", hand);
+      }
+
+      function updateActiveKeys(now) {
+        keyActiveUntil.forEach((state, midi) => {
+          if (now >= state.until) {
+            const key = keys.get(midi);
+            if (key) key.classList.remove("active", "left", "right");
+            keyActiveUntil.delete(midi);
+          }
+        });
+      }
+
+      function spawnParticles(midi, hand, intensity = 1) {
+        if (reducedMotion) return;
+        const geometry = keyGeometry.get(midi);
+        if (!geometry) return;
+        const color = hand === "left" ? [69, 246, 177] : [57, 191, 255];
+        const amount = Math.round((hand === "left" ? 9 : 12) * intensity);
+        for (let i = 0; i < amount; i++) {
+          particles.push({
+            x: geometry.x + (Math.random() - 0.5) * Math.max(5, geometry.width * 0.7),
+            y: hitLineY - Math.random() * 4,
+            vx: (Math.random() - 0.5) * 34,
+            vy: -(30 + Math.random() * 90),
+            gravity: -2 - Math.random() * 8,
+            radius: 1.1 + Math.random() * 3.1,
+            life: 0,
+            ttl: 0.65 + Math.random() * 0.9,
+            color
+          });
+        }
+      }
+
+      async function playManualNote(midi) {
+        if (!(await ensureAudio())) return;
+        const hand = midi < 60 ? "left" : "right";
+        const now = audio.context.currentTime;
+        audio.play(midi, now + 0.008, 0.75, 0.62, hand);
+        activateKey(midi, hand, now + 0.32);
+        spawnParticles(midi, hand, 0.7);
+      }
+
+      function roundedRect(context, x, y, w, h, radius) {
+        const r = Math.min(radius, Math.abs(w) / 2, Math.abs(h) / 2);
+        context.beginPath();
+        context.roundRect(x, y, w, h, r);
+      }
+
+      function drawBackground() {
+        const topFade = ctx.createLinearGradient(0, 0, 0, hitLineY);
+        topFade.addColorStop(0, "rgba(26,34,39,0.13)");
+        topFade.addColorStop(0.6, "rgba(4,7,8,0)");
+        topFade.addColorStop(1, "rgba(0,0,0,0.18)");
+        ctx.fillStyle = topFade;
+        ctx.fillRect(0, 0, width, hitLineY);
+
+        keyGeometry.forEach((geometry, midi) => {
+          if (midi % 12 !== 0) return;
+          ctx.beginPath();
+          ctx.moveTo(geometry.x, 0);
+          ctx.lineTo(geometry.x, hitLineY);
+          ctx.strokeStyle = "rgba(255,255,255,0.025)";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        });
+      }
+
+      function drawNotes(now) {
+        const speed = Math.max(120, hitLineY / TRAVEL_SECONDS);
+        notesInFlight.forEach(note => {
+          const geometry = keyGeometry.get(note.midi);
+          if (!geometry) return;
+          const secondsUntil = note.hitTime - now;
+          const barHeight = Math.max(12, note.durationSeconds * speed * 0.82);
+          const bottom = hitLineY - secondsUntil * speed;
+          const top = bottom - barHeight;
+          if (bottom < -10 || top > hitLineY + 4) return;
+
+          const color = note.hand === "left" ? "69,246,177" : "57,191,255";
+          const barWidth = Math.max(3, geometry.width * (geometry.black ? 0.72 : 0.5));
+          const x = geometry.x - barWidth / 2;
+          const clippedTop = Math.max(-barHeight, top);
+          const visibleHeight = Math.max(2, bottom - clippedTop);
+          const gradient = ctx.createLinearGradient(0, clippedTop, 0, bottom);
+          gradient.addColorStop(0, `rgba(${color},0.015)`);
+          gradient.addColorStop(0.58, `rgba(${color},0.24)`);
+          gradient.addColorStop(1, `rgba(${color},0.94)`);
+
+          ctx.save();
+          ctx.globalCompositeOperation = "lighter";
+          ctx.shadowColor = `rgba(${color},0.8)`;
+          ctx.shadowBlur = note.hand === "left" ? 16 : 20;
+          ctx.fillStyle = gradient;
+          roundedRect(ctx, x, clippedTop, barWidth, visibleHeight, Math.min(7, barWidth / 2));
+          ctx.fill();
+          ctx.shadowBlur = 5;
+          ctx.fillStyle = `rgba(${color},0.96)`;
+          roundedRect(ctx, x, bottom - 3, barWidth, 3, 2);
+          ctx.fill();
+          ctx.restore();
+        });
+      }
+
+      function updateAndDrawParticles(delta) {
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.life += delta;
+          if (p.life >= p.ttl) {
+            particles.splice(i, 1);
+            continue;
+          }
+          p.vy += p.gravity * delta;
+          p.x += p.vx * delta;
+          p.y += p.vy * delta;
+          p.vx *= Math.pow(0.88, delta);
+          const alpha = Math.sin((p.life / p.ttl) * Math.PI) * 0.9;
+          const scale = 1 - (p.life / p.ttl) * 0.5;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius * scale, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${p.color.join(",")},${alpha})`;
+          ctx.shadowColor = `rgb(${p.color.join(",")})`;
+          ctx.shadowBlur = 13;
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      function processSequence(now) {
+        fillNoteStream(now + TRAVEL_SECONDS + 0.8);
+        const scheduleHorizon = now + 0.14;
+
+        notesInFlight.forEach(note => {
+          if (!note.scheduled && note.hitTime <= scheduleHorizon) {
+            audio.play(note.midi, note.hitTime, note.durationSeconds, note.velocity, note.hand);
+            note.scheduled = true;
+          }
+          if (!note.hit && now >= note.hitTime) {
+            note.hit = true;
+            activateKey(note.midi, note.hand, now + Math.min(0.42, note.durationSeconds * 0.58));
+            spawnParticles(note.midi, note.hand, 0.82 + note.velocity * 0.35);
+          }
+        });
+
+        notesInFlight = notesInFlight.filter(note => now < note.hitTime + note.durationSeconds + 1.8);
+        const elapsedBeats = Math.max(0, (now - timelineStart) / BEAT_SECONDS);
+        const loop = Math.floor(elapsedBeats / LOOP_BEATS) + 1;
+        loopCounter.textContent = `Studio Op. 1 · Passage ${String(Math.max(1, loop)).padStart(2, "0")}`;
+      }
+
+      function frame(timestamp) {
+        const delta = Math.min(0.034, (timestamp - lastFrame) / 1000 || 0.016);
+        lastFrame = timestamp;
+        ctx.clearRect(0, 0, width, height);
+        drawBackground();
+
+        if (audio && started) {
+          const now = audio.context.currentTime;
+          if (playing) processSequence(now);
+          drawNotes(now);
+          updateActiveKeys(now);
+        }
+
+        updateAndDrawParticles(delta);
+        requestAnimationFrame(frame);
+      }
+
+      function setVolume(value) {
+        const numeric = Number(value);
+        if (numeric > 0) lastVolume = numeric;
+        const percent = numeric * 100;
+        volumeSlider.style.background = `linear-gradient(90deg, #dce7e2 0 ${percent}%, rgba(255,255,255,0.16) ${percent}% 100%)`;
+        muteButton.setAttribute("aria-pressed", numeric === 0 ? "true" : "false");
+        muteButton.setAttribute("aria-label", numeric === 0 ? "Unmute audio" : "Mute audio");
+        if (audio) audio.setVolume(numeric);
+      }
+
+      const keyboardMap = {
+        a: 60, w: 61, s: 62, e: 63, d: 64, f: 65, t: 66, g: 67,
+        y: 68, h: 69, u: 70, j: 71, k: 72, o: 73, l: 74, p: 75, ";": 76
+      };
+
+      buildKeyboard();
+      resize();
+      setVolume(volumeSlider.value);
+      requestAnimationFrame(frame);
+
+      beginButton.addEventListener("click", startPerformance);
+      transportButton.addEventListener("click", toggleTransport);
+      volumeSlider.addEventListener("input", event => setVolume(event.target.value));
+      muteButton.addEventListener("click", () => {
+        const next = Number(volumeSlider.value) > 0 ? 0 : (lastVolume || 0.72);
+        volumeSlider.value = String(next);
+        setVolume(next);
+      });
+      fullscreenButton.addEventListener("click", async () => {
+        try {
+          if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+          else await document.exitFullscreen();
+        } catch (error) {
+          console.warn("Fullscreen unavailable", error);
+        }
+      });
+      window.addEventListener("resize", resize);
+      document.addEventListener("fullscreenchange", resize);
+      window.addEventListener("keydown", event => {
+        if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+        const midi = keyboardMap[event.key.toLowerCase()];
+        if (midi) playManualNote(midi);
+        if (event.code === "Space" && event.target === document.body) {
+          event.preventDefault();
+          toggleTransport();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

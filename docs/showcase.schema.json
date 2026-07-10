@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://model-observatory.local/showcase.schema.json",
+  "title": "Model Observatory experiment metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "title": { "type": "string", "minLength": 1 },
+    "slug": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "order": { "type": "integer", "minimum": 0 },
+    "promptGroup": { "type": "string", "minLength": 1, "deprecated": true },
+    "comparisonGroup": {
+      "description": "Override automatic project-number matching. Use the same string to group projects, or null to exclude this project.",
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true,
+      "maxItems": 12
+    },
+    "featured": { "type": "boolean" }
+  }
+}

@@ -1,0 +1,272 @@
+{
+  "sessionId": "orch-20260710-020138",
+  "title": "Sol Terra Luna Model Showcase",
+  "createdAt": "2026-07-10T06:24:10.088Z",
+  "updatedAt": "2026-07-10T06:24:10.088Z",
+  "mode": "hybrid",
+  "lifecycle": {
+    "genesis": {
+      "status": "completed",
+      "taskIds": [
+        "GEN-1"
+      ],
+      "canExpand": true
+    },
+    "design": {
+      "status": "pending",
+      "taskIds": [],
+      "canExpand": true
+    },
+    "build": {
+      "status": "completed",
+      "taskIds": [
+        "BLD-1",
+        "BLD-2",
+        "BLD-3",
+        "REV-1"
+      ],
+      "canExpand": true
+    }
+  },
+  "sessionIntent": "full-project",
+  "tasks": [
+    {
+      "id": "GEN-1",
+      "title": "Confirm showcase direction",
+      "role": "architect",
+      "status": "completed",
+      "stage": "genesis",
+      "workflow": "vibe-genesis",
+      "preferredAgent": "architect",
+      "dispatchPolicy": "subagent",
+      "checklist": [
+        {
+          "text": "Repository inventoried",
+          "done": true
+        },
+        {
+          "text": "Static-first approach approved",
+          "done": true
+        }
+      ],
+      "objective": "Translate the repository inventory and user goal into an approved static-first architecture.",
+      "scope": [
+        "Inventory model folders and project artifacts",
+        "Choose hosting and content architecture",
+        "Define transcript publication strategy"
+      ],
+      "definitionOfDone": [
+        "User approves architecture",
+        "Database decision is explicit"
+      ],
+      "expectedArtifacts": [
+        "Architecture recommendation in conversation"
+      ],
+      "conversationId": "architect-GEN-1"
+    },
+    {
+      "id": "BLD-1",
+      "title": "Foundation and ingestion",
+      "role": "code",
+      "status": "completed",
+      "stage": "build",
+      "workflow": "vibe-build",
+      "preferredAgent": "coder",
+      "preferredModel": "oauth-router/gpt-5.4",
+      "preferredThinking": "high",
+      "dispatchPolicy": "subagent",
+      "checklist": [
+        {
+          "text": "Scaffold application",
+          "done": true
+        },
+        {
+          "text": "Implement scanner",
+          "done": true
+        },
+        {
+          "text": "Implement sanitizer",
+          "done": true
+        },
+        {
+          "text": "Test pipeline",
+          "done": true
+        }
+      ],
+      "objective": "Create the Next.js foundation and deterministic content pipeline.",
+      "scope": [
+        "Scaffold app",
+        "Scan experiment folders",
+        "Sanitize Pi exports",
+        "Generate catalogue and static assets",
+        "Add pipeline tests"
+      ],
+      "definitionOfDone": [
+        "Existing projects discovered",
+        "Incomplete folders handled",
+        "Private paths and system prompts stripped",
+        "Pipeline tests pass"
+      ],
+      "expectedArtifacts": [
+        "Next.js scaffold",
+        "Ingestion scripts",
+        "Generated data contracts",
+        "Tests"
+      ],
+      "conversationId": "coder-BLD-1",
+      "notes": "Parent implemented the Next.js/pnpm foundation and deterministic ingestion pipeline. It discovers 12 projects (11 ready, Terra voxel missing transcript), emits 11 sanitized transcript JSON files totaling ~149 KB, finds one comparison group, and passes tests/typecheck/lint/build. Privacy scan found no CreativeOS paths, systemPrompt, tool schema, encrypted reasoning, or thinking signatures."
+    },
+    {
+      "id": "BLD-2",
+      "title": "Showcase experience",
+      "role": "design",
+      "status": "completed",
+      "stage": "build",
+      "workflow": "vibe-build",
+      "preferredAgent": "coder",
+      "preferredModel": "oauth-router/gpt-5.4",
+      "preferredThinking": "high",
+      "dispatchPolicy": "subagent",
+      "checklist": [
+        {
+          "text": "Build gallery",
+          "done": true
+        },
+        {
+          "text": "Build detail experience",
+          "done": true
+        },
+        {
+          "text": "Build transcript viewer",
+          "done": true
+        },
+        {
+          "text": "Build comparison",
+          "done": true
+        }
+      ],
+      "objective": "Build the gallery, project viewer, transcript interface, and comparison experience.",
+      "scope": [
+        "Visual system",
+        "Gallery and filtering",
+        "Project detail",
+        "Sandboxed preview",
+        "Transcript viewer",
+        "Comparison route",
+        "Responsive accessibility"
+      ],
+      "definitionOfDone": [
+        "Complete projects navigable",
+        "Nitro League comparison works",
+        "Desktop and mobile layouts usable"
+      ],
+      "expectedArtifacts": [
+        "Routes",
+        "Components",
+        "Styles",
+        "Metadata"
+      ],
+      "dependencies": [
+        "BLD-1"
+      ],
+      "conversationId": "coder-BLD-2",
+      "notes": "Implemented and visually reviewed via oauth-router/gpt-5.6-sol. Added distinctive responsive gallery, model/project/comparison routes, opt-in sandboxed previews with unload and timeout recovery, lazy sanitized transcript viewer, accessible mobile tabs, static SEO, and branded route states. Sol UI review blocker and important findings were resolved."
+    },
+    {
+      "id": "BLD-3",
+      "title": "Hardening and deployment",
+      "role": "code",
+      "status": "completed",
+      "stage": "build",
+      "workflow": "vibe-build",
+      "preferredAgent": "coder",
+      "preferredModel": "oauth-router/gpt-5.4",
+      "preferredThinking": "high",
+      "dispatchPolicy": "subagent",
+      "checklist": [
+        {
+          "text": "Harden embedding",
+          "done": true
+        },
+        {
+          "text": "Document workflow",
+          "done": true
+        },
+        {
+          "text": "Run verification",
+          "done": true
+        }
+      ],
+      "objective": "Make the implementation maintainable, safe, and Vercel-ready.",
+      "scope": [
+        "Security headers and iframe policies",
+        "Validation commands",
+        "Documentation",
+        "Vercel deployment",
+        "Full verification"
+      ],
+      "definitionOfDone": [
+        "Checks pass",
+        "Workflow documented",
+        "Build output verified"
+      ],
+      "expectedArtifacts": [
+        "README",
+        "Verification scripts",
+        "Deployment configuration"
+      ],
+      "dependencies": [
+        "BLD-2"
+      ],
+      "conversationId": "coder-BLD-3",
+      "notes": "Added Vercel/pnpm configuration, security and cache headers, publication validation, deterministic release verifier, metadata schema, sitemap/robots, environment-aware canonical origin, asset allowlisting/symlink exclusion, dependency override with zero known audit vulnerabilities, and comprehensive README. Final pnpm verify passed. The live source changed during implementation and is now handled automatically: 13 records discovered, 11 ready, 2 incomplete, 11 sanitized transcripts, 1 comparison."
+    },
+    {
+      "id": "REV-1",
+      "title": "Final senior review",
+      "role": "review",
+      "status": "completed",
+      "stage": "build",
+      "workflow": "vibe-build",
+      "preferredAgent": "reviewer",
+      "preferredModel": "oauth-router/gpt-5.5",
+      "preferredThinking": "high",
+      "dispatchPolicy": "review-first",
+      "checklist": [
+        {
+          "text": "Review implementation",
+          "done": true
+        },
+        {
+          "text": "Resolve findings",
+          "done": true
+        },
+        {
+          "text": "Re-run verification",
+          "done": true
+        }
+      ],
+      "objective": "Audit the completed site for correctness, security, privacy, accessibility, and regressions.",
+      "scope": [
+        "Implementation/spec comparison",
+        "Sanitization audit",
+        "Iframe isolation",
+        "Accessibility",
+        "Build verification"
+      ],
+      "definitionOfDone": [
+        "No critical/high findings",
+        "Verification passes after fixes"
+      ],
+      "expectedArtifacts": [
+        "Review findings",
+        "Resolution notes"
+      ],
+      "dependencies": [
+        "BLD-3"
+      ],
+      "conversationId": "reviewer-REV-1",
+      "notes": "Final review completed parent-led after reviewer account quota was exhausted. Verified clean source experiment diff, static route output, pnpm/Vercel consistency, raw Pi exclusion, symlink exclusion, and parsed transcript privacy. Hardened Pi script-tag parsing, high-confidence secret redaction, structural forbidden-key validation, parsed-value path/secret scans, and regression tests. Final pnpm verify passes: 13 records, 12 ready, 1 incomplete, 12 sanitized transcripts, 1 comparison, 22 static/SSG pages. No critical or high findings remain."
+    }
+  ]
+}

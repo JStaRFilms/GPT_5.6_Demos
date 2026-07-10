@@ -1,0 +1,187 @@
+{
+  "project": "NEBULA // QUANTUM",
+  "fps": 60,
+  "duration": 6000,
+  "slides": [
+    {
+      "id": "intro_sequence",
+      "title": "Genesis / Audio Reactive",
+      "duration": 6000,
+      "nodes": [
+        {
+          "id": "header",
+          "type": "text",
+          "value": "SYSTEM INITIALIZATION",
+          "enter": 0,
+          "enterDuration": 400,
+          "exit": 5500,
+          "exitDuration": 300
+        },
+        {
+          "id": "core_01",
+          "type": "text",
+          "value": "FROM",
+          "enter": 500,
+          "enterDuration": 450,
+          "exit": 5000,
+          "exitDuration": 500
+        },
+        {
+          "id": "core_02",
+          "type": "text",
+          "value": "THE",
+          "enter": 750,
+          "enterDuration": 450,
+          "exit": 5000,
+          "exitDuration": 500
+        },
+        {
+          "id": "core_03",
+          "type": "text",
+          "value": "VOID",
+          "enter": 1000,
+          "enterDuration": 450,
+          "exit": 5000,
+          "exitDuration": 500
+        },
+        {
+          "id": "core_04",
+          "type": "text",
+          "value": "SPARKS",
+          "enter": 1400,
+          "enterDuration": 600,
+          "exit": 5000,
+          "exitDuration": 500
+        },
+        {
+          "id": "core_05",
+          "type": "text",
+          "value": "INTELLIGENCE.",
+          "enter": 1850,
+          "enterDuration": 800,
+          "exit": 5000,
+          "exitDuration": 500
+        },
+        {
+          "id": "audio_wave",
+          "type": "waveform",
+          "enter": 2200,
+          "enterDuration": 1200,
+          "exit": 5200,
+          "exitDuration": 400
+        }
+      ]
+    },
+    {
+      "id": "matrix_density",
+      "title": "Topology / Point Cloud",
+      "duration": 6000,
+      "nodes": [
+        {
+          "id": "sidebar_label",
+          "type": "text",
+          "value": "PARTICLE DENSITY MATRIX",
+          "enter": 0,
+          "enterDuration": 500,
+          "exit": 5600,
+          "exitDuration": 300
+        },
+        {
+          "id": "mesh_node_alpha",
+          "type": "threejs-pointcloud",
+          "enter": 600,
+          "enterDuration": 2500,
+          "exit": 5100,
+          "exitDuration": 600
+        },
+        {
+          "id": "mesh_node_beta",
+          "type": "threejs-pointcloud",
+          "enter": 1200,
+          "enterDuration": 2500,
+          "exit": 5100,
+          "exitDuration": 600
+        },
+        {
+          "id": "coordinate_metric",
+          "type": "text",
+          "value": "[45.092 // -122.684]",
+          "enter": 3200,
+          "enterDuration": 400,
+          "exit": 5400,
+          "exitDuration": 400
+        }
+      ]
+    },
+    {
+      "id": "telemetry",
+      "title": "Analysis / Iteration Steps",
+      "duration": 6000,
+      "nodes": [
+        {
+          "id": "top_status",
+          "type": "text",
+          "value": "COMPUTATIONAL EFFICIENCY",
+          "enter": 0,
+          "enterDuration": 300,
+          "exit": 5700,
+          "exitDuration": 300
+        },
+        {
+          "id": "step_01",
+          "type": "marker",
+          "enter": 400,
+          "enterDuration": 400,
+          "exit": 5300,
+          "exitDuration": 400,
+          "counter": 1024
+        },
+        {
+          "id": "step_02",
+          "type": "marker",
+          "enter": 900,
+          "enterDuration": 400,
+          "exit": 5300,
+          "exitDuration": 400,
+          "counter": 2048
+        },
+        {
+          "id": "step_03",
+          "type": "marker",
+          "enter": 1400,
+          "enterDuration": 400,
+          "exit": 5300,
+          "exitDuration": 400,
+          "counter": 4096
+        },
+        {
+          "id": "step_04",
+          "type": "marker",
+          "enter": 1900,
+          "enterDuration": 400,
+          "exit": 5300,
+          "exitDuration": 400,
+          "counter": 8192
+        },
+        {
+          "id": "step_05",
+          "type": "marker",
+          "enter": 2400,
+          "enterDuration": 400,
+          "exit": 5300,
+          "exitDuration": 400,
+          "counter": 16384
+        },
+        {
+          "id": "percentage_lock",
+          "type": "text",
+          "value": "OPTIMIZED 99.4%",
+          "enter": 3000,
+          "enterDuration": 700,
+          "exit": 5500,
+          "exitDuration": 400
+        }
+      ]
+    }
+  ]
+}

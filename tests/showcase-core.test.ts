@@ -31,10 +31,13 @@ test("redacts private paths and secret-like values recursively", () => {
 
   const value = redactSensitive({
     apiKey: "sk-example-1234567890",
-    nested: { path: "C:\\CreativeOS\\project\\index.html", note: "public" }
+    monkey: "kept",
+    nested: { path: "C:\\CreativeOS\\project\\index.html", note: "AKIAABCDEFGHIJKLMNOP" }
   }) as Record<string, unknown>;
   assert.equal(value.apiKey, "[redacted]");
+  assert.equal(value.monkey, "kept");
   assert.match(JSON.stringify(value), /\[local-path\]/);
+  assert.match(JSON.stringify(value), /\[redacted-secret\]/);
   assert.equal(JSON.stringify(value).includes("CreativeOS"), false);
 });
 
@@ -76,7 +79,7 @@ test("decodes Pi exports while excluding thinking, tool arguments, and system da
     ]
   };
   const payload = Buffer.from(JSON.stringify(session), "utf8").toString("base64");
-  const html = `<script id="session-data" type="application/json">${payload}</script>`;
+  const html = `<script data-export="pi" type="application/json" id="session-data">${payload}</script>`;
   const decoded = decodePiSessionHtml(html);
   const publicJson = JSON.stringify(decoded.transcript);
 

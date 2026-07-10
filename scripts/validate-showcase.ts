@@ -6,15 +6,19 @@ import type { ShowcaseCatalogue, ShowcaseTranscript } from "../src/types/showcas
 const root = join(fileURLToPath(new URL("..", import.meta.url)));
 const cataloguePath = join(root, "src", "generated", "catalogue.json");
 const publicGenerated = join(root, "public", "generated");
-const forbiddenTranscriptMarkers = [
-  "C:\\CreativeOS",
-  "C:\\Users\\",
-  '"systemPrompt"',
-  '"tools"',
+const forbiddenTranscriptKeys = new Set([
+  "systemPrompt",
+  "tools",
+  "renderedTools",
   "thinkingSignature",
-  "encrypted_content",
-  "BEGIN OPENSSH PRIVATE KEY",
-  "Bearer eyJ"
+  "encrypted_content"
+]);
+const forbiddenTranscriptValues: Array<[string, RegExp]> = [
+  ["Windows absolute path", /[A-Za-z]:\\/],
+  ["private Unix path", /(^|[\s("'`])\/(?:Users|home|root|var|tmp|private|mnt|opt|srv)\//],
+  ["private key", /BEGIN (?:OPENSSH|RSA|EC|DSA) PRIVATE KEY/],
+  ["bearer token", /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/i],
+  ["known secret format", /\b(?:AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|glpat-[A-Za-z0-9_-]{12,}|npm_[A-Za-z0-9]{12,}|sk_live_[A-Za-z0-9]{12,})\b/]
 ];
 
 function walk(directory: string): string[] {
@@ -28,6 +32,28 @@ function walk(directory: string): string[] {
 function fail(message: string): never {
   console.error(`ERROR: ${message}`);
   process.exit(1);
+}
+
+function findUnsafeTranscriptValue(value: unknown, location = "transcript"): string | null {
+  if (typeof value === "string") {
+    const match = forbiddenTranscriptValues.find(([, pattern]) => pattern.test(value));
+    return match ? `${match[0]} at ${location}` : null;
+  }
+  if (Array.isArray(value)) {
+    for (const [index, child] of value.entries()) {
+      const issue = findUnsafeTranscriptValue(child, `${location}[${index}]`);
+      if (issue) return issue;
+    }
+    return null;
+  }
+  if (value && typeof value === "object") {
+    for (const [key, child] of Object.entries(value)) {
+      if (forbiddenTranscriptKeys.has(key)) return `forbidden key ${key} at ${location}`;
+      const issue = findUnsafeTranscriptValue(child, `${location}.${key}`);
+      if (issue) return issue;
+    }
+  }
+  return null;
 }
 
 if (!existsSync(cataloguePath)) fail("Generated catalogue is missing. Run pnpm generate first.");
@@ -63,11 +89,10 @@ if (rawSession) fail(`Raw Pi export was copied publicly: ${rawSession}`);
 
 const transcripts = publicFiles.filter((path) => path.endsWith(".json") && path.includes(`${join("generated", "transcripts")}`));
 for (const path of transcripts) {
-  const source = readFileSync(path, "utf8");
-  const marker = forbiddenTranscriptMarkers.find((candidate) => source.includes(candidate));
-  if (marker) fail(`Transcript ${path} contains forbidden marker ${JSON.stringify(marker)}.`);
-  const transcript = JSON.parse(source) as ShowcaseTranscript;
+  const transcript = JSON.parse(readFileSync(path, "utf8")) as ShowcaseTranscript;
   if (transcript.schemaVersion !== 1 || !Array.isArray(transcript.messages)) fail(`Transcript ${path} has an invalid schema.`);
+  const unsafeValue = findUnsafeTranscriptValue(transcript);
+  if (unsafeValue) fail(`Transcript ${path} contains ${unsafeValue}.`);
   if (statSync(path).size > 1_000_000) fail(`Transcript ${path} exceeds the 1 MB publication limit.`);
 }
 

@@ -12,7 +12,8 @@ const WINDOWS_PATH = /\b[A-Za-z]:\\[^\r\n<>"'`|]*/g;
 const UNIX_PRIVATE_PATH = /(^|[\s("'`])\/(?:Users|home|root|var|tmp|private|mnt|opt|srv)\/[^\s<>"'`)]*/g;
 const BEARER_TOKEN = /\bBearer\s+[A-Za-z0-9._~+/=-]{12,}/gi;
 const COMMON_SECRET = /\b(?:sk|ghp|github_pat|xox[abprs])[-_A-Za-z0-9]{12,}\b/g;
-const SECRET_KEY = /(token|secret|password|passwd|authorization|cookie|credential|api[-_]?key|private[-_]?key)/i;
+const HIGH_CONFIDENCE_SECRET = /\b(?:AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|glpat-[A-Za-z0-9_-]{12,}|npm_[A-Za-z0-9]{12,}|sk_live_[A-Za-z0-9]{12,})\b/g;
+const SECRET_KEY = /(?:^|[-_])(token|secret|password|passwd|authorization|cookie|credential|api[-_]?key|private[-_]?key)(?:$|[-_])/i;
 const MAX_PUBLIC_TEXT = 60_000;
 const PUBLIC_ASSET_EXTENSIONS = new Set([
   ".html", ".css", ".js", ".mjs", ".cjs", ".json", ".wasm",
@@ -91,6 +92,7 @@ export function redactText(value: string): string {
     .replace(UNIX_PRIVATE_PATH, "$1[local-path]")
     .replace(BEARER_TOKEN, "Bearer [redacted]")
     .replace(COMMON_SECRET, "[redacted-secret]")
+    .replace(HIGH_CONFIDENCE_SECRET, "[redacted-secret]")
     .slice(0, MAX_PUBLIC_TEXT);
 }
 
@@ -173,7 +175,7 @@ function userBlocks(content: unknown): TranscriptBlock[] {
 }
 
 export function decodePiSessionHtml(html: string): DecodedSession {
-  const match = html.match(/<script\s+id=["']session-data["']\s+type=["']application\/json["']>\s*([\s\S]*?)\s*<\/script>/i);
+  const match = html.match(/<script\b(?=[^>]*\bid=["']session-data["'])(?=[^>]*\btype=["']application\/json["'])[^>]*>\s*([\s\S]*?)\s*<\/script>/i);
   if (!match) throw new Error("Pi export does not contain a session-data payload.");
 
   let raw: RawPiSession;
